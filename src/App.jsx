@@ -18,19 +18,19 @@ import {
 } from 'firebase/firestore';
 
 // --- SAFE FIREBASE INITIALIZATION ---
-let fConfig = { apiKey: "dummy-key", projectId: "dummy-project", appId: "123" };
-try {
-  if (typeof __firebase_config !== 'undefined') {
-    fConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
-  }
-} catch (e) {
-  console.error("Error parsing firebase config:", e);
-}
+// --- FIREBASE SETUP ---
+const firebaseConfig = {
+  apiKey: "AIzaSyDjmAHxhhEmIfpmMC-glskeSHNXuVXXlBU",
+  authDomain: "mediveuerp.firebaseapp.com",
+  projectId: "mediveuerp",
+  storageBucket: "mediveuerp.firebasestorage.app",
+  messagingSenderId: "203997741439",
+  appId: "1:203997741439:web:a44659832e6a107d80da4a"
+};
 
-const app = initializeApp(fConfig);
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'mediveu-erp';
 
 // --- UTILITY COMPONENTS ---
 
