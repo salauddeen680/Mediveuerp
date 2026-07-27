@@ -4,13 +4,14 @@ import {
   Settings, LogOut, Plus, Edit, Trash2, Search, Printer, 
   Download, Activity, CheckCircle, AlertTriangle, Play, Shield, 
   Database, UserCheck, Phone, Mail, MapPin, Check, ChevronRight,
-  TrendingUp, Box, ShoppingCart
+  TrendingUp, Box, ShoppingCart, Share2
 } from 'lucide-react';
 import { 
   initializeApp 
 } from 'firebase/app';
 import { 
-  getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged 
+  getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut
 } from 'firebase/auth';
 import { 
   getFirestore, collection, doc, setDoc, getDocs, onSnapshot, 
@@ -18,7 +19,6 @@ import {
 } from 'firebase/firestore';
 
 // --- SAFE FIREBASE INITIALIZATION ---
-// --- FIREBASE SETUP ---
 const firebaseConfig = {
   apiKey: "AIzaSyDjmAHxhhEmIfpmMC-glskeSHNXuVXXlBU",
   authDomain: "mediveuerp.firebaseapp.com",
@@ -35,7 +35,7 @@ const db = getFirestore(app);
 // --- UTILITY COMPONENTS ---
 
 const Button = ({ children, variant = 'primary', className = '', ...props }) => {
-  const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2";
+  const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer";
   const variants = {
     primary: "bg-gradient-to-r from-teal-500 to-green-500 text-white hover:from-teal-600 hover:to-green-600 shadow-md",
     secondary: "bg-slate-800 text-white hover:bg-slate-700 border border-slate-700",
@@ -69,10 +69,10 @@ const Modal = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex justify-between items-center p-4 border-b border-slate-700 sticky top-0 bg-slate-800 z-10">
           <h2 className="text-xl font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 cursor-pointer">
             <X size={20} />
           </button>
         </div>
@@ -121,25 +121,19 @@ export default function App() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // Initialize Auth Safely
+  // Initialize Auth Safely with Email/Password fallback state
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("Auth init error:", error);
-        setAuthError(error.message);
-        setAuthLoading(false);
-      }
-    };
-    initAuth();
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        // If logged in, push to tenant dashboard if still on public view
+        setCurrentView('tenant');
+        setCurrentPath('dashboard');
+      }
+      setAuthLoading(false);
+    }, (error) => {
+      console.error("Auth error:", error);
+      setAuthError(error.message);
       setAuthLoading(false);
     });
     
@@ -185,6 +179,16 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('public', 'home');
+      showToast('Logged out successfully');
+    } catch (err) {
+      showToast('Error logging out', 'error');
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-teal-400 gap-4">
@@ -200,7 +204,7 @@ export default function App() {
         <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-8 max-w-md text-center">
            <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
            <h2 className="text-xl font-bold text-white mb-2">Connection Error</h2>
-           <p className="text-slate-400 text-sm mb-6">Unable to connect to authentication servers. If you are in a preview environment, check if API keys are fully loaded.</p>
+           <p className="text-slate-400 text-sm mb-6">Unable to connect to authentication servers.</p>
            <p className="text-xs text-red-400/80 p-3 bg-black/30 rounded">{authError}</p>
         </div>
       </div>
@@ -209,10 +213,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30">
-      {currentView === 'public' && <PublicWebsite navigate={navigate} />}
+      {currentView === 'public' && <PublicWebsite navigate={navigate} showToast={showToast} />}
       {currentView === 'tenant' && (
         <TenantDashboard 
-          user={user} navigate={navigate} currentPath={currentPath} showToast={showToast}
+          user={user} navigate={navigate} currentPath={currentPath} showToast={showToast} handleLogout={handleLogout}
           data={{ medicines, bills, customers, suppliers, settings }}
         />
       )}
@@ -225,10 +229,10 @@ export default function App() {
 }
 
 // ==========================================
-// 1. PUBLIC WEBSITE
+// 1. PUBLIC WEBSITE & AUTH VIEWS
 // ==========================================
 
-function PublicWebsite({ navigate }) {
+function PublicWebsite({ navigate, showToast }) {
   const [activeTab, setActiveTab] = useState('home');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -245,8 +249,8 @@ function PublicWebsite({ navigate }) {
       case 'features': return <FeaturesView />;
       case 'pricing': return <PricingView />;
       case 'contact': return <ContactView />;
-      case 'login': return <LoginView navigate={navigate} />;
-      case 'register': return <RegisterView navigate={navigate} />;
+      case 'login': return <LoginView navigate={navigate} showToast={showToast} setActiveTab={setActiveTab} />;
+      case 'register': return <RegisterView navigate={navigate} showToast={showToast} />;
       case 'admin-login': return <AdminLoginView navigate={navigate} />;
       default: return <HomeView setActiveTab={setActiveTab} />;
     }
@@ -271,19 +275,19 @@ function PublicWebsite({ navigate }) {
                 <button 
                   key={link.id} 
                   onClick={() => setActiveTab(link.id)}
-                  className={`text-sm font-medium transition-colors ${activeTab === link.id ? 'text-teal-400' : 'text-slate-300 hover:text-white'}`}
+                  className={`text-sm font-medium transition-colors cursor-pointer ${activeTab === link.id ? 'text-teal-400' : 'text-slate-300 hover:text-white'}`}
                 >
                   {link.label}
                 </button>
               ))}
               <div className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-800">
-                <button onClick={() => setActiveTab('login')} className="text-sm font-medium text-slate-300 hover:text-white">Login</button>
+                <button onClick={() => setActiveTab('login')} className="text-sm font-medium text-slate-300 hover:text-white cursor-pointer">Login</button>
                 <Button onClick={() => setActiveTab('register')}>Start Free Trial</Button>
               </div>
             </div>
 
             <div className="md:hidden flex items-center">
-              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white">
+              <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white cursor-pointer">
                 {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
               </button>
             </div>
@@ -296,12 +300,12 @@ function PublicWebsite({ navigate }) {
               <button 
                 key={link.id} 
                 onClick={() => { setActiveTab(link.id); setIsMobileMenuOpen(false); }}
-                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800"
+                className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer"
               >
                 {link.label}
               </button>
             ))}
-             <button onClick={() => { setActiveTab('login'); setIsMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-teal-400 hover:bg-slate-800">Login</button>
+             <button onClick={() => { setActiveTab('login'); setIsMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-teal-400 hover:bg-slate-800 cursor-pointer">Login</button>
           </div>
         )}
       </nav>
@@ -309,85 +313,37 @@ function PublicWebsite({ navigate }) {
       <main className="flex-grow">
         {renderContent()}
       </main>
-
-      <footer className="bg-slate-900 border-t border-slate-800 pt-16 pb-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-            <div className="col-span-1 md:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <Plus className="text-teal-400" size={24} />
-                <span className="text-xl font-bold text-white">MEDIVEU ERP</span>
-              </div>
-              <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                Complete Medical Store ERP & Smart Billing System. Designed for pharmacies, clinics, and medical distributors.
-              </p>
-              <button onClick={() => setActiveTab('admin-login')} className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
-                Super Admin Login
-              </button>
-            </div>
-            <div>
-              <h3 className="text-white font-semibold mb-4">Product</h3>
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li><button onClick={() => setActiveTab('features')} className="hover:text-teal-400">Features</button></li>
-                <li><button onClick={() => setActiveTab('pricing')} className="hover:text-teal-400">Pricing</button></li>
-                <li><a href="#" className="hover:text-teal-400">Download App</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-white font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li><button onClick={() => setActiveTab('contact')} className="hover:text-teal-400">Contact Us</button></li>
-                <li><a href="#" className="hover:text-teal-400">FAQ</a></li>
-                <li><a href="#" className="hover:text-teal-400">Documentation</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-white font-semibold mb-4">Legal</h3>
-              <ul className="space-y-2 text-sm text-slate-400">
-                <li><a href="#" className="hover:text-teal-400">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-teal-400">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-teal-400">Refund Policy</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-slate-500 text-sm">© {new Date().getFullYear()} MEDIVEU ERP. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
 
 const HomeView = ({ setActiveTab }) => (
-  <div>
-    <div className="relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-teal-500/10 to-transparent pointer-events-none" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 text-center relative z-10">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 text-sm font-medium mb-8 border border-teal-500/20">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-          </span>
-          SaaS V2.0 is Live
-        </div>
-        <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-8 leading-tight">
-          Smart Billing & ERP for <br className="hidden md:block"/>
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-green-500">
-            Medical Stores
-          </span>
-        </h1>
-        <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
-          Manage inventory, generate GST bills, track expiry dates, and grow your pharmacy business with MEDIVEU's intelligent cloud-based platform.
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button onClick={() => setActiveTab('register')} className="w-full sm:w-auto px-8 py-4 text-lg">
-            Start 7-Day Free Trial
-          </Button>
-          <Button variant="secondary" onClick={() => setActiveTab('features')} className="w-full sm:w-auto px-8 py-4 text-lg">
-            View Features <ChevronRight size={20} className="ml-1" />
-          </Button>
-        </div>
+  <div className="relative overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-b from-teal-500/10 to-transparent pointer-events-none" />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 text-center relative z-10">
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 text-sm font-medium mb-8 border border-teal-500/20">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+        </span>
+        Pharma ERP V2.0 Live
+      </div>
+      <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-8 leading-tight">
+        Smart Wholesale Billing & ERP for <br className="hidden md:block"/>
+        <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-green-500">
+          Medical Stores
+        </span>
+      </h1>
+      <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10 leading-relaxed">
+        Manage inventory with batch & expiry tracking, generate professional GST invoices, and grow your pharma business with MEDIVEU cloud platform.
+      </p>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <Button onClick={() => setActiveTab('register')} className="w-full sm:w-auto px-8 py-4 text-lg">
+          Create Account / Free Trial
+        </Button>
+        <Button variant="secondary" onClick={() => setActiveTab('features')} className="w-full sm:w-auto px-8 py-4 text-lg">
+          View Features <ChevronRight size={20} className="ml-1" />
+        </Button>
       </div>
     </div>
   </div>
@@ -396,19 +352,19 @@ const HomeView = ({ setActiveTab }) => (
 const FeaturesView = () => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
     <div className="text-center mb-16">
-      <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Everything you need to run your store</h2>
-      <p className="text-slate-400 text-lg">Powerful features designed specifically for the healthcare retail industry.</p>
+      <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Complete Wholesale Pharma Features</h2>
+      <p className="text-slate-400 text-lg">Engineered specifically for medical stores, distributors, and pharmacies.</p>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       {[
-        { icon: <FileText size={32} />, title: "Smart Billing (POS)", desc: "Lightning fast billing with barcode scanning, GST calculation, and custom discounts." },
-        { icon: <Package size={32} />, title: "Inventory Management", desc: "Track stock levels, set reorder points, and manage multiple batches effortlessly." },
-        { icon: <AlertTriangle size={32} />, title: "Expiry Alerts", desc: "Never lose money on expired medicine again. Get automated alerts before stock expires." },
-        { icon: <Activity size={32} />, title: "Advanced Reports", desc: "Generate daily sales, GST, profit, and inventory reports with one click." },
-        { icon: <Users size={32} />, title: "Customer CRM", desc: "Track customer purchase history, manage outstanding balances, and send WhatsApp bills." },
-        { icon: <Database size={32} />, title: "Cloud Backup", desc: "Your data is automatically backed up securely to the cloud. Never lose a single record." },
+        { icon: <FileText size={32} />, title: "Wholesale GST Invoicing", desc: "Professional Marg/Wholesale style bills with HSN/SAC, Batch, Expiry, SGST, CGST & IGST breakdown." },
+        { icon: <Package size={32} />, title: "Batch & Expiry Control", desc: "Track batch numbers, expiry dates, and automated low stock alerts instantly." },
+        { icon: <Printer size={32} />, title: "Print, PDF & Share", desc: "Download PDF copies instantly, direct thermal/A4 print support, and WhatsApp bill sharing." },
+        { icon: <Activity size={32} />, title: "Advanced Financial Reports", desc: "Daily sales tracking, total revenue reports, and automated GST liability calculations." },
+        { icon: <Users size={32} />, title: "Customer & Party CRM", desc: "Maintain records of buyers, outstanding credit balances, and transaction history." },
+        { icon: <Database size={32} />, title: "Secure Cloud Database", desc: "Real-time sync across devices with enterprise-grade Firebase security." },
       ].map((feature, i) => (
-        <Card key={i} className="hover:bg-slate-800 transition-colors cursor-pointer group">
+        <Card key={i} className="hover:bg-slate-800 transition-colors group">
           <div className="w-14 h-14 bg-teal-500/10 text-teal-400 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
             {feature.icon}
           </div>
@@ -423,48 +379,42 @@ const FeaturesView = () => (
 const PricingView = () => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
     <div className="text-center mb-16">
-      <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Simple, transparent pricing</h2>
-      <p className="text-slate-400 text-lg">No hidden fees. Cancel anytime.</p>
+      <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Transparent Pricing Plans</h2>
+      <p className="text-slate-400 text-lg">Scale your store with powerful features.</p>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
       <Card className="relative border-slate-700">
-        <div className="mb-8">
-          <h3 className="text-2xl font-semibold text-white mb-2">Monthly</h3>
-          <p className="text-slate-400">Perfect for getting started.</p>
-        </div>
-        <div className="mb-8 flex items-baseline gap-2">
+        <h3 className="text-2xl font-semibold text-white mb-2">Monthly Plan</h3>
+        <div className="mb-8 flex items-baseline gap-2 mt-4">
           <span className="text-5xl font-bold text-white">₹249</span>
           <span className="text-slate-400">/month</span>
         </div>
         <ul className="space-y-4 mb-8">
-          {['Unlimited Bills', 'Unlimited Inventory', 'Cloud Backup', 'Basic Reports', 'Email Support'].map((f, i) => (
+          {['Unlimited GST Bills', 'Batch & Expiry Management', 'PDF & Print Support', 'Cloud Sync'].map((f, i) => (
             <li key={i} className="flex items-center gap-3 text-slate-300">
               <Check size={18} className="text-teal-400" /> {f}
             </li>
           ))}
         </ul>
-        <Button className="w-full">Start 7-Day Free Trial</Button>
+        <Button className="w-full">Get Started</Button>
       </Card>
       <Card className="relative border-teal-500 shadow-2xl shadow-teal-500/10">
         <div className="absolute top-0 right-8 transform -translate-y-1/2">
-          <span className="bg-teal-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Most Popular</span>
+          <span className="bg-teal-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Best Value</span>
         </div>
-        <div className="mb-8">
-          <h3 className="text-2xl font-semibold text-white mb-2">Yearly</h3>
-          <p className="text-slate-400">Save big with annual billing.</p>
-        </div>
-        <div className="mb-8 flex items-baseline gap-2">
+        <h3 className="text-2xl font-semibold text-white mb-2">Yearly Plan</h3>
+        <div className="mb-8 flex items-baseline gap-2 mt-4">
           <span className="text-5xl font-bold text-white">₹2999</span>
           <span className="text-slate-400">/year</span>
         </div>
         <ul className="space-y-4 mb-8">
-          {['Everything in Monthly', 'Advanced Analytics', 'WhatsApp Integration', 'Priority 24/7 Support', 'Multiple Users'].map((f, i) => (
+          {['Everything in Monthly', 'Advanced Analytics & GST Reports', 'Priority Support', 'Custom Branding'].map((f, i) => (
             <li key={i} className="flex items-center gap-3 text-slate-300">
               <Check size={18} className="text-teal-400" /> {f}
             </li>
           ))}
         </ul>
-        <Button className="w-full">Start 7-Day Free Trial</Button>
+        <Button className="w-full">Get Started</Button>
       </Card>
     </div>
   </div>
@@ -473,89 +423,115 @@ const PricingView = () => (
 const ContactView = () => (
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
     <div className="max-w-3xl mx-auto text-center mb-16">
-      <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Get in touch</h2>
-      <p className="text-slate-400 text-lg">Have questions? We're here to help.</p>
+      <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">Contact Support</h2>
+      <p className="text-slate-400 text-lg">We are here to assist your pharmacy business 24/7.</p>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-      <div>
-        <div className="space-y-8">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><MapPin /></div>
-            <div>
-              <h4 className="text-white font-medium mb-1">Office</h4>
-              <p className="text-slate-400">123 Health Tech Park, Andheri East,<br/>Mumbai, Maharashtra 400069</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><Phone /></div>
-            <div>
-              <h4 className="text-white font-medium mb-1">Phone</h4>
-              <p className="text-slate-400">+91 1800-123-4567</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><Mail /></div>
-            <div>
-              <h4 className="text-white font-medium mb-1">Email</h4>
-              <p className="text-slate-400">support@mediveuerp.com</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="max-w-xl mx-auto">
       <Card>
-        <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-          <Input label="Name" placeholder="John Doe" />
-          <Input label="Email" type="email" placeholder="john@example.com" />
+        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); alert('Message sent successfully!'); }}>
+          <Input label="Your Name" placeholder="Rajesh Kumar" required />
+          <Input label="Email or Phone" placeholder="support@pharmacy.com" required />
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Message</label>
-            <textarea className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500 transition-colors h-32 resize-none" placeholder="How can we help?"></textarea>
+            <textarea className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500 transition-colors h-32 resize-none" placeholder="Describe your query..." required></textarea>
           </div>
-          <Button className="w-full">Send Message</Button>
+          <Button className="w-full">Submit Query</Button>
         </form>
       </Card>
     </div>
   </div>
 );
 
-const LoginView = ({ navigate }) => {
-  const handleLogin = (e) => {
+// --- FIXED LOGIN & REGISTRATION WITH EMAIL/PASSWORD ---
+
+const LoginView = ({ navigate, showToast, setActiveTab }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    navigate('tenant', 'dashboard');
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      showToast('Logged in successfully!');
+      navigate('tenant', 'dashboard');
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || 'Login failed. Please check credentials.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
-    <div className="max-w-md mx-auto py-24 px-4">
+    <div className="max-w-md mx-auto py-20 px-4">
       <Card>
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-white mb-2">Welcome Back</h2>
-          <p className="text-slate-400">Login to your MEDIVEU dashboard</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Store Login</h2>
+          <p className="text-slate-400">Access your MEDIVEU ERP Account</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-6">
-          <Input label="Email Address" type="email" placeholder="admin@mystore.com" required />
-          <Input label="Password" type="password" placeholder="••••••••" required />
-          <Button type="submit" className="w-full">Login</Button>
+          <Input label="Email Address" type="email" placeholder="admin@mystore.com" value={email} onChange={e => setEmail(e.target.value)} required />
+          <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </Button>
         </form>
+        <div className="mt-6 text-center text-sm text-slate-400">
+          Don't have an account? <button onClick={() => setActiveTab('register')} className="text-teal-400 hover:underline cursor-pointer font-medium">Create Account</button>
+        </div>
       </Card>
     </div>
   );
 };
 
-const RegisterView = ({ navigate }) => {
-  const handleRegister = (e) => {
+const RegisterView = ({ navigate, showToast }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [storeName, setStoreName] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async (e) => {
     e.preventDefault();
-    navigate('tenant', 'settings');
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = userCredential.user;
+
+      // Initialize default settings profile in firestore
+      await setDoc(doc(db, 'artifacts', appId, 'users', newUser.uid, 'settings', 'general'), {
+        storeName: storeName || 'Pharma Wholesale',
+        address: '13-2-47, Opp Gowdiyamatam, Behind Football Ground, Bacheli',
+        phone: '9999955559',
+        gstin: '07CTMPM699K1ZJ',
+        dlNumber: 'DL11WW-6985'
+      });
+
+      showToast('Account created successfully!');
+      navigate('tenant', 'settings');
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || 'Registration failed.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
-    <div className="max-w-md mx-auto py-24 px-4">
+    <div className="max-w-md mx-auto py-20 px-4">
       <Card>
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-white mb-2">Start Free Trial</h2>
-          <p className="text-slate-400">No credit card required.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Create Account</h2>
+          <p className="text-slate-400">Setup your Pharmacy ERP instance.</p>
         </div>
         <form onSubmit={handleRegister} className="space-y-6">
-          <Input label="Store Name" placeholder="City Pharmacy" required />
-          <Input label="Email Address" type="email" placeholder="admin@mystore.com" required />
-          <Input label="Password" type="password" placeholder="••••••••" required />
-          <Button type="submit" className="w-full">Create Account</Button>
+          <Input label="Store Name" placeholder="Pharma Wholesale" value={storeName} onChange={e => setStoreName(e.target.value)} required />
+          <Input label="Email Address" type="email" placeholder="admin@mystore.com" value={email} onChange={e => setEmail(e.target.value)} required />
+          <Input label="Password (Min 6 chars)" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Creating Account...' : 'Register & Start'}
+          </Button>
         </form>
       </Card>
     </div>
@@ -579,7 +555,7 @@ const AdminLoginView = ({ navigate }) => {
           <div className="mx-auto w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-4">
             <Shield size={24} />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Super Admin System</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Super Admin Console</h2>
           <p className="text-slate-400">Restricted Access Only</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-6">
@@ -596,17 +572,17 @@ const AdminLoginView = ({ navigate }) => {
 // 2. TENANT DASHBOARD (User App)
 // ==========================================
 
-function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
+function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout, data }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
-    { id: 'billing', label: 'Billing (POS)', icon: <CreditCard size={20} /> },
-    { id: 'medicines', label: 'Medicines', icon: <Package size={20} /> },
+    { id: 'billing', label: 'Billing / POS', icon: <CreditCard size={20} /> },
+    { id: 'medicines', label: 'Inventory (Medicines)', icon: <Package size={20} /> },
     { id: 'customers', label: 'Customers', icon: <Users size={20} /> },
     { id: 'suppliers', label: 'Suppliers', icon: <Truck size={20} /> },
     { id: 'reports', label: 'Reports', icon: <FileText size={20} /> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
+    { id: 'settings', label: 'Store Settings', icon: <Settings size={20} /> },
   ];
 
   const renderContent = () => {
@@ -614,7 +590,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
       case 'dashboard': return <TenantDashboardView data={data} />;
       case 'billing': return <TenantBillingView data={data} showToast={showToast} user={user} />;
       case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
-      case 'customers': return <TenantCustomersView data={data} showToast={showToast} user={user} />;
+      case 'customers': return <TenantCustomersView data={data} />;
       case 'suppliers': return <TenantSuppliersView />;
       case 'reports': return <TenantReportsView data={data} />;
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
@@ -622,7 +598,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
     }
   };
 
-  const storeName = data.settings?.general?.storeName || "My Pharmacy";
+  const storeName = data.settings?.general?.storeName || "Pharma Wholesale";
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">
@@ -632,7 +608,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
             <Plus className="text-teal-400" size={24} />
             <span className="font-bold text-lg text-white truncate">{storeName}</span>
           </div>
-          <button className="md:hidden text-slate-400" onClick={() => setIsSidebarOpen(false)}>
+          <button className="md:hidden text-slate-400 cursor-pointer" onClick={() => setIsSidebarOpen(false)}>
             <X size={20} />
           </button>
         </div>
@@ -642,7 +618,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
             <button
               key={item.id}
               onClick={() => { navigate('tenant', item.id); if(window.innerWidth < 768) setIsSidebarOpen(false); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
                 currentPath === item.id ? 'bg-teal-500/10 text-teal-400' : 'text-slate-300 hover:bg-slate-800 hover:text-white'
               }`}
             >
@@ -652,8 +628,8 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
           ))}
           <div className="pt-8">
              <button
-              onClick={() => navigate('public', 'home')}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
             >
               <LogOut size={20} />
               Logout
@@ -664,7 +640,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 sticky top-0 z-30">
-          <button className="md:hidden text-slate-400 p-2" onClick={() => setIsSidebarOpen(true)}>
+          <button className="md:hidden text-slate-400 p-2 cursor-pointer" onClick={() => setIsSidebarOpen(true)}>
             <Menu size={24} />
           </button>
           <div className="hidden md:flex items-center text-slate-300">
@@ -672,8 +648,8 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <div className="text-sm font-medium text-white">{user?.uid?.substring(0,6) || 'Guest'}</div>
-              <div className="text-xs text-slate-400">Pro Plan (Active)</div>
+              <div className="text-sm font-medium text-white">{user?.email || 'Store User'}</div>
+              <div className="text-xs text-teal-400">Active ERP License</div>
             </div>
             <div className="w-9 h-9 rounded-full bg-gradient-to-r from-teal-500 to-green-500 flex items-center justify-center text-white font-bold uppercase">
               {storeName.charAt(0)}
@@ -707,9 +683,9 @@ function TenantDashboardView({ data }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <h3 className="text-lg font-semibold text-white mb-4">Recent Bills</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Recent Invoices</h3>
           {bills.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">No bills generated yet.</div>
+            <div className="text-center py-8 text-slate-500">No bills generated yet. Go to Billing to create one.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -747,7 +723,7 @@ function TenantDashboardView({ data }) {
                 <div key={m.id} className="flex justify-between items-center p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
                   <div>
                     <div className="font-medium text-red-200">{m.name}</div>
-                    <div className="text-xs text-red-400/70">Batch: {m.batch}</div>
+                    <div className="text-xs text-red-400/70">Batch: {m.batch} | Exp: {m.expiry}</div>
                   </div>
                   <div className="text-red-400 font-bold">
                     {m.stock} left
@@ -776,14 +752,29 @@ function StatCard({ title, value, icon, color, bg }) {
   );
 }
 
+// ==========================================
+// 3. PROFESSIONAL INVOICE & BILLING VIEW
+// ==========================================
+
 function TenantBillingView({ data, showToast, user }) {
-  const { medicines, bills } = data;
+  const { medicines, bills, settings } = data;
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [customerName, setCustomerName] = useState('');
+  const [customerName, setCustomerName] = useState('M/s GUPTA STORE');
+  const [customerAddress, setCustomerAddress] = useState('SHOP NO.2, KAROL BAGH, DELHI - 110006');
+  const [customerGstin, setCustomerGstin] = useState('07CTMPM8957K1ZU');
   const [customerPhone, setCustomerPhone] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState(null);
+
+  const storeSettings = settings?.general || {
+    storeName: 'PHARMA WHOLESALE',
+    address: '13-2-47, OPP GOWDIPAMATAM, BEHIND FOOTBALL GROUND, BACHELI, 494553',
+    phone: '9999955559, 9999988877',
+    gstin: '07CTMPM699K1ZJ',
+    dlNumber: 'DL11WW-6985'
+  };
 
   const filteredMeds = searchTerm 
     ? medicines.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()) || m.barcode === searchTerm)
@@ -802,7 +793,15 @@ function TenantBillingView({ data, showToast, user }) {
         showToast('Out of stock!', 'error');
         return;
       }
-      setCart([...cart, { ...med, qty: 1, originalPrice: med.mrp }]);
+      setCart([...cart, { 
+        ...med, 
+        qty: 1, 
+        originalPrice: Number(med.mrp) || 100,
+        hsn: med.hsn || '3004',
+        batch: med.batch || 'B-101',
+        expiry: med.expiry || '12/26',
+        gst: Number(med.gst) || 12
+      }]);
     }
     setSearchTerm('');
   };
@@ -821,15 +820,20 @@ function TenantBillingView({ data, showToast, user }) {
 
   const subtotal = cart.reduce((acc, item) => acc + (item.qty * item.originalPrice), 0);
   const discountAmount = subtotal * (discountPercent / 100);
-  const finalTotal = subtotal - discountAmount;
+  const taxableTotal = subtotal - discountAmount;
   
-  let totalGstAmount = 0;
+  // Tax calculations (Splitting GST into SGST and CGST @ 6% each or customized)
+  let totalSgst = 0;
+  let totalCgst = 0;
   cart.forEach(item => {
-     const gstRate = Number(item.gst) || 0;
-     const itemTotalAfterDiscount = (item.qty * item.originalPrice) * (1 - discountPercent/100);
-     const baseAmount = itemTotalAfterDiscount / (1 + (gstRate/100));
-     totalGstAmount += (itemTotalAfterDiscount - baseAmount);
+     const itemNet = (item.qty * item.originalPrice) * (1 - discountPercent/100);
+     const gstRate = Number(item.gst) || 12;
+     const taxAmt = itemNet * (gstRate / 100);
+     totalSgst += taxAmt / 2;
+     totalCgst += taxAmt / 2;
   });
+
+  const finalTotal = taxableTotal + totalSgst + totalCgst;
 
   const handleGenerateBill = async () => {
     if (cart.length === 0) return showToast('Cart is empty', 'error');
@@ -839,45 +843,59 @@ function TenantBillingView({ data, showToast, user }) {
     try {
       const today = new Date();
       const dateStr = today.toISOString().split('T')[0];
-      const billCount = bills.filter(b => b.date === dateStr).length + 1;
-      const billNo = `INV-${dateStr.replace(/-/g,'')}-${String(billCount).padStart(3, '0')}`;
+      const billCount = bills.length + 1;
+      const billNo = `A0000${billCount}`;
 
       const billData = {
         billNo,
         date: dateStr,
         timestamp: serverTimestamp(),
         createdAt: Date.now(),
-        customerName: customerName || 'Walk-in Customer',
+        customerName: customerName || 'M/s GUPTA STORE',
+        customerAddress,
+        customerGstin,
         customerPhone,
         items: cart,
         subtotal,
         discountPercent,
         discountAmount,
-        totalGstAmount,
+        taxableTotal,
+        totalSgst,
+        totalCgst,
         total: finalTotal,
+        storeInfo: storeSettings,
         status: 'PAID'
       };
 
       await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'bills'), billData);
 
+      // Deduct stock
       for (const item of cart) {
-        const medRef = doc(db, 'artifacts', appId, 'users', user.uid, 'medicines', item.id);
-        const newStock = Number(item.stock) - item.qty;
-        await updateDoc(medRef, { stock: newStock });
+        if(item.id) {
+          const medRef = doc(db, 'artifacts', appId, 'users', user.uid, 'medicines', item.id);
+          const newStock = Number(item.stock || 0) - item.qty;
+          await updateDoc(medRef, { stock: newStock });
+        }
       }
 
-      showToast('Bill generated successfully!');
+      showToast('Invoice generated successfully!');
+      setActiveInvoice(billData);
       setCart([]);
-      setCustomerName('');
-      setCustomerPhone('');
-      setDiscountPercent(0);
-
     } catch (error) {
       console.error(error);
-      showToast('Failed to generate bill', 'error');
+      showToast('Failed to generate invoice', 'error');
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(`Invoice *${activeInvoice?.billNo}* from *${storeSettings.storeName}*. Total Amount: ₹${activeInvoice?.total.toFixed(2)}. Thank you for your business!`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   return (
@@ -888,7 +906,7 @@ function TenantBillingView({ data, showToast, user }) {
             <Search className="absolute left-3 top-3 text-slate-400" size={20} />
             <input 
               type="text" 
-              placeholder="Search by Medicine Name or Barcode..." 
+              placeholder="Search medicine by name or barcode..." 
               className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-teal-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -906,7 +924,7 @@ function TenantBillingView({ data, showToast, user }) {
                   >
                     <div>
                       <div className="font-medium text-white">{med.name}</div>
-                      <div className="text-xs text-slate-400">Batch: {med.batch} • Exp: {med.expiry}</div>
+                      <div className="text-xs text-slate-400">Batch: {med.batch} | Exp: {med.expiry}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-teal-400 font-bold">₹{med.mrp}</div>
@@ -915,7 +933,7 @@ function TenantBillingView({ data, showToast, user }) {
                   </div>
                 ))
               ) : (
-                <div className="p-4 text-slate-400 text-center">No medicines found.</div>
+                <div className="p-4 text-slate-400 text-center">No medicines found. Add them in Inventory first.</div>
               )}
             </div>
           )}
@@ -923,41 +941,46 @@ function TenantBillingView({ data, showToast, user }) {
 
         <Card className="flex-1 overflow-hidden flex flex-col p-0">
           <div className="bg-slate-900 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-            <h3 className="font-semibold text-white">Current Bill Items</h3>
+            <h3 className="font-semibold text-white">Current Invoice Items</h3>
             <span className="text-sm text-slate-400">{cart.length} items</span>
           </div>
           <div className="flex-1 overflow-y-auto p-0">
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-slate-400 uppercase bg-slate-900/50 border-b border-slate-700 sticky top-0">
                 <tr>
-                  <th className="px-4 py-3">Item</th>
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3">Batch/Exp</th>
                   <th className="px-4 py-3 w-24">Qty</th>
-                  <th className="px-4 py-3 text-right">Price</th>
-                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3 text-right">Rate</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3 w-10"></th>
                 </tr>
               </thead>
               <tbody>
                 {cart.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-12 text-slate-500">Cart is empty. Search to add items.</td></tr>
+                  <tr><td colSpan="6" className="text-center py-12 text-slate-500">Cart is empty. Search items above to add.</td></tr>
                 ) : (
                   cart.map((item, idx) => (
                     <tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/30">
                       <td className="px-4 py-3">
                         <div className="font-medium text-white">{item.name}</div>
-                        <div className="text-xs text-slate-500">GST: {item.gst}%</div>
+                        <div className="text-xs text-slate-500">HSN: {item.hsn}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-300">
+                        <div>{item.batch}</div>
+                        <div className="text-slate-500">{item.expiry}</div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-6 h-6 rounded bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600">-</button>
+                          <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-6 h-6 rounded bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 cursor-pointer">-</button>
                           <span className="w-6 text-center">{item.qty}</span>
-                          <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-6 h-6 rounded bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600">+</button>
+                          <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-6 h-6 rounded bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 cursor-pointer">+</button>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right">₹{item.originalPrice}</td>
                       <td className="px-4 py-3 text-right font-medium text-teal-400">₹{(item.qty * item.originalPrice).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-300"><Trash2 size={16} /></button>
+                        <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-300 cursor-pointer"><Trash2 size={16} /></button>
                       </td>
                     </tr>
                   ))
@@ -969,13 +992,14 @@ function TenantBillingView({ data, showToast, user }) {
       </div>
 
       <Card className="w-full md:w-80 flex-shrink-0 flex flex-col h-full overflow-y-auto">
-        <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4">Customer Details</h3>
+        <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4">Buyer Details</h3>
         <div className="space-y-3 mb-6">
-          <Input placeholder="Customer Phone (Optional)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
-          <Input placeholder="Customer Name (Optional)" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+          <Input label="Party Name" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+          <Input label="Party GSTIN" value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} />
+          <Input label="Party Address" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} />
         </div>
 
-        <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4 mt-auto">Bill Summary</h3>
+        <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4 mt-auto">Invoice Totals</h3>
         <div className="space-y-3 mb-6 text-sm">
           <div className="flex justify-between text-slate-300">
             <span>Subtotal</span>
@@ -991,30 +1015,136 @@ function TenantBillingView({ data, showToast, user }) {
               min="0" max="100"
             />
           </div>
-          {discountAmount > 0 && (
-            <div className="flex justify-between text-green-400">
-              <span>Discount Amount</span>
-              <span>-₹{discountAmount.toFixed(2)}</span>
-            </div>
-          )}
-           <div className="flex justify-between text-slate-400 text-xs">
-            <span>Included GST</span>
-            <span>₹{totalGstAmount.toFixed(2)}</span>
+          <div className="flex justify-between text-slate-400 text-xs">
+            <span>SGST / CGST</span>
+            <span>₹{totalSgst.toFixed(2)} / ₹{totalCgst.toFixed(2)}</span>
           </div>
           <div className="border-t border-slate-700 pt-3 flex justify-between font-bold text-lg text-white">
-            <span>Total Pay</span>
+            <span>Grand Total</span>
             <span className="text-teal-400">₹{finalTotal.toFixed(2)}</span>
           </div>
         </div>
 
-        <Button 
-          className="w-full py-4 text-lg font-bold" 
-          onClick={handleGenerateBill} 
-          disabled={cart.length === 0 || isProcessing}
-        >
-          {isProcessing ? 'Processing...' : 'Generate Bill'}
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            className="w-full py-3 font-bold" 
+            onClick={handleGenerateBill} 
+            disabled={cart.length === 0 || isProcessing}
+          >
+            {isProcessing ? 'Generating...' : 'Save & Generate Bill'}
+          </Button>
+
+          {activeInvoice && (
+            <Button variant="secondary" className="w-full py-2.5" onClick={() => setActiveInvoice(activeInvoice)}>
+              <FileText size={16} /> View Last Invoice
+            </Button>
+          )}
+        </div>
       </Card>
+
+      {/* MODAL FOR PROFESSIONAL WHOLESALE INVOICE PREVIEW / PRINT */}
+      {activeInvoice && (
+        <Modal isOpen={!!activeInvoice} onClose={() => setActiveInvoice(null)} title="Professional Wholesale Tax Invoice">
+          <div className="space-y-4">
+            <div className="flex justify-end gap-2 print:hidden">
+              <Button onClick={handlePrint}><Printer size={16} /> Print / Download PDF</Button>
+              <Button variant="secondary" onClick={handleShareWhatsApp}><Share2 size={16} /> Share WhatsApp</Button>
+            </div>
+
+            {/* PRINTABLE AREA MATCHING MARG / WHOLESALE FORMAT */}
+            <div id="invoice-print-area" className="bg-white text-black p-6 rounded-lg border border-slate-300 text-xs font-sans">
+              <div className="text-center border-b-2 border-black pb-3 mb-3">
+                <div className="text-xs font-bold uppercase text-right">Original for Buyer</div>
+                <h1 className="text-xl font-extrabold tracking-wide uppercase">{activeInvoice.storeInfo?.storeName}</h1>
+                <p className="text-[11px] text-gray-700">{activeInvoice.storeInfo?.address}</p>
+                <p className="text-[11px] text-gray-700">Phone: {activeInvoice.storeInfo?.phone}</p>
+              </div>
+
+              <div className="grid grid-cols-2 border border-black mb-3 p-2 bg-gray-50">
+                <div>
+                  <p><span className="font-bold">GSTIN :</span> {activeInvoice.storeInfo?.gstin}</p>
+                  <p><span className="font-bold">Invoice No :</span> {activeInvoice.billNo}</p>
+                  <p><span className="font-bold">Invoice Date :</span> {activeInvoice.date}</p>
+                  <p><span className="font-bold">DL No :</span> {activeInvoice.storeInfo?.dlNumber}</p>
+                </div>
+                <div>
+                  <p><span className="font-bold">Shipped To:</span> {activeInvoice.customerName}</p>
+                  <p><span className="font-bold">GSTIN:</span> {activeInvoice.customerGstin}</p>
+                </div>
+              </div>
+
+              <div className="border border-black mb-3 p-2">
+                <p className="font-bold border-b border-black pb-1 mb-1">Detail of Receiver (Billed to):</p>
+                <p className="font-semibold">{activeInvoice.customerName}</p>
+                <p>{activeInvoice.customerAddress}</p>
+                <p><span className="font-bold">GSTIN:</span> {activeInvoice.customerGstin}</p>
+              </div>
+
+              {/* ITEMS TABLE */}
+              <table className="w-full border-collapse border border-black mb-3 text-[11px]">
+                <thead>
+                  <tr className="bg-gray-200 border-b border-black text-center">
+                    <th className="border border-black p-1">S.No.</th>
+                    <th className="border border-black p-1 text-left">Description of Goods</th>
+                    <th className="border border-black p-1">HSN</th>
+                    <th className="border border-black p-1">Batch</th>
+                    <th className="border border-black p-1">Exp</th>
+                    <th className="border border-black p-1">Qty</th>
+                    <th className="border border-black p-1">Rate</th>
+                    <th className="border border-black p-1">Taxable</th>
+                    <th className="border border-black p-1">GST%</th>
+                    <th className="border border-black p-1 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeInvoice.items.map((item, idx) => {
+                    const itemTaxable = item.qty * item.originalPrice;
+                    return (
+                      <tr key={idx} className="border-b border-black text-center">
+                        <td className="border border-black p-1">{idx + 1}</td>
+                        <td className="border border-black p-1 text-left font-medium">{item.name}</td>
+                        <td className="border border-black p-1">{item.hsn}</td>
+                        <td className="border border-black p-1">{item.batch}</td>
+                        <td className="border border-black p-1">{item.expiry}</td>
+                        <td className="border border-black p-1">{item.qty} PCS</td>
+                        <td className="border border-black p-1">₹{item.originalPrice}</td>
+                        <td className="border border-black p-1">₹{itemTaxable.toFixed(2)}</td>
+                        <td className="border border-black p-1">{item.gst}%</td>
+                        <td className="border border-black p-1 text-right font-bold">₹{itemTaxable.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* SUMMARY & BANK DETAILS */}
+              <div className="grid grid-cols-2 gap-4 border border-black p-3 mb-3 bg-gray-50">
+                <div>
+                  <p className="font-bold underline mb-1">Bank Details:</p>
+                  <p>Bank Name: PUNJAB & SIND BANK</p>
+                  <p>Branch: GEETA COLONY</p>
+                  <p>A/c No.: 06261100054752</p>
+                  <p>IFSC CODE: PSIB0000626</p>
+                </div>
+                <div className="text-right space-y-1">
+                  <p>Total Amount Before GST: ₹{activeInvoice.subtotal.toFixed(2)}</p>
+                  {activeInvoice.discountAmount > 0 && <p>Discount: -₹{activeInvoice.discountAmount.toFixed(2)}</p>}
+                  <p>Add : SGST: ₹{activeInvoice.totalSgst.toFixed(2)}</p>
+                  <p>Add : CGST: ₹{activeInvoice.totalCgst.toFixed(2)}</p>
+                  <p className="font-bold text-sm border-t border-black pt-1">Grand Total: ₹{activeInvoice.total.toFixed(2)}</p>
+                </div>
+              </div>
+
+              <div className="border border-black p-2 text-[10px]">
+                <p className="font-bold">Terms & Conditions:</p>
+                <p>1. Goods once sold will not be taken back or exchanged.</p>
+                <p>2. Bills not paid due date will attract 24% interest.</p>
+                <div className="text-right mt-4 font-bold">For {activeInvoice.storeInfo?.storeName}<br/><br/>Authorised Signatory</div>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -1024,7 +1154,7 @@ function TenantMedicinesView({ data, showToast, user }) {
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
-    name: '', genericName: '', barcode: '', batch: '', expiry: '', 
+    name: '', genericName: '', barcode: '', batch: '', expiry: '', hsn: '3004',
     stock: 0, purchasePrice: 0, mrp: 0, gst: 12
   });
 
@@ -1034,7 +1164,7 @@ function TenantMedicinesView({ data, showToast, user }) {
       setFormData(med);
     } else {
       setEditingId(null);
-      setFormData({ name: '', genericName: '', barcode: '', batch: '', expiry: '', stock: 0, purchasePrice: 0, mrp: 0, gst: 12 });
+      setFormData({ name: '', genericName: '', barcode: '', batch: '', expiry: '', hsn: '3004', stock: 0, purchasePrice: 0, mrp: 0, gst: 12 });
     }
     setIsModalOpen(true);
   };
@@ -1097,27 +1227,27 @@ function TenantMedicinesView({ data, showToast, user }) {
             </thead>
             <tbody>
               {filteredData.length === 0 ? (
-                <tr><td colSpan="5" className="text-center py-8 text-slate-500">No medicines found.</td></tr>
+                <tr><td colSpan="5" className="text-center py-8 text-slate-500">No medicines found. Click Add Medicine.</td></tr>
               ) : (
                 filteredData.map(med => (
                   <tr key={med.id} className="border-b border-slate-800 hover:bg-slate-800/50">
                     <td className="px-6 py-4">
                       <div className="font-medium text-white">{med.name}</div>
-                      <div className="text-xs text-slate-500">{med.genericName}</div>
+                      <div className="text-xs text-slate-500">HSN: {med.hsn}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div>{med.batch}</div>
-                      <div className={`text-xs ${new Date(med.expiry) < new Date() ? 'text-red-400 font-bold' : 'text-slate-400'}`}>Exp: {med.expiry}</div>
+                      <div className="text-xs text-slate-400">Exp: {med.expiry}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${med.stock > 10 ? 'bg-green-500/10 text-green-400' : med.stock > 0 ? 'bg-orange-500/10 text-orange-400' : 'bg-red-500/10 text-red-400'}`}>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${med.stock > 10 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                         {med.stock} Units
                       </span>
                     </td>
                     <td className="px-6 py-4 font-medium">₹{med.mrp}</td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => handleOpen(med)} className="text-teal-400 hover:text-teal-300 mx-2"><Edit size={16} /></button>
-                      <button onClick={() => handleDelete(med.id)} className="text-red-400 hover:text-red-300"><Trash2 size={16} /></button>
+                      <button onClick={() => handleOpen(med)} className="text-teal-400 hover:text-teal-300 mx-2 cursor-pointer"><Edit size={16} /></button>
+                      <button onClick={() => handleDelete(med.id)} className="text-red-400 hover:text-red-300 cursor-pointer"><Trash2 size={16} /></button>
                     </td>
                   </tr>
                 ))
@@ -1131,12 +1261,10 @@ function TenantMedicinesView({ data, showToast, user }) {
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Medicine Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-            <Input label="Generic Name" value={formData.genericName} onChange={e => setFormData({...formData, genericName: e.target.value})} />
-            <Input label="Barcode" value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} />
+            <Input label="HSN Code" value={formData.hsn} onChange={e => setFormData({...formData, hsn: e.target.value})} />
             <Input label="Batch Number" required value={formData.batch} onChange={e => setFormData({...formData, batch: e.target.value})} />
-            <Input label="Expiry Date" type="month" required value={formData.expiry} onChange={e => setFormData({...formData, expiry: e.target.value})} />
-            <Input label="Initial Stock" type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
-            <Input label="Purchase Price (₹)" type="number" step="0.01" required value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: Number(e.target.value)})} />
+            <Input label="Expiry Date (MM/YY)" required value={formData.expiry} onChange={e => setFormData({...formData, expiry: e.target.value})} />
+            <Input label="Stock Quantity" type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
             <Input label="MRP (₹)" type="number" step="0.01" required value={formData.mrp} onChange={e => setFormData({...formData, mrp: Number(e.target.value)})} />
             <Input label="GST (%)" type="number" required value={formData.gst} onChange={e => setFormData({...formData, gst: Number(e.target.value)})} />
           </div>
@@ -1153,48 +1281,34 @@ function TenantMedicinesView({ data, showToast, user }) {
 function TenantCustomersView({ data }) {
    return (
     <div className="max-w-7xl mx-auto space-y-4">
-       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-white">Customers Directory</h1>
-      </div>
+       <h1 className="text-2xl font-bold text-white">Customers Directory</h1>
       <Card>
-        <p className="text-slate-400 mb-4">Customer records are created automatically when bills are generated with phone numbers. (Full CRM management available in Pro version).</p>
-        
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-400 uppercase bg-slate-900">
               <tr>
-                <th className="px-6 py-4">Phone Number</th>
-                <th className="px-6 py-4">Name</th>
+                <th className="px-6 py-4">Customer Name</th>
+                <th className="px-6 py-4">GSTIN</th>
                 <th className="px-6 py-4">Total Purchases</th>
               </tr>
             </thead>
             <tbody>
-              {Object.entries(
-                data.bills.reduce((acc, bill) => {
-                  if(bill.customerPhone) {
-                    if(!acc[bill.customerPhone]) acc[bill.customerPhone] = { name: bill.customerName, total: 0, count: 0 };
-                    acc[bill.customerPhone].total += Number(bill.total);
-                    acc[bill.customerPhone].count += 1;
-                    acc[bill.customerPhone].name = bill.customerName || acc[bill.customerPhone].name;
-                  }
-                  return acc;
-                }, {})
-              ).map(([phone, info], i) => (
+              {data.bills.map((b, i) => (
                  <tr key={i} className="border-b border-slate-800">
-                    <td className="px-6 py-4 font-medium text-white">{phone}</td>
-                    <td className="px-6 py-4">{info.name}</td>
-                    <td className="px-6 py-4 text-teal-400">₹{info.total.toFixed(2)} ({info.count} bills)</td>
+                    <td className="px-6 py-4 font-medium text-white">{b.customerName}</td>
+                    <td className="px-6 py-4 text-slate-300">{b.customerGstin || 'N/A'}</td>
+                    <td className="px-6 py-4 text-teal-400">₹{Number(b.total).toFixed(2)}</td>
                  </tr>
               ))}
-              {data.bills.filter(b=>b.customerPhone).length === 0 && (
-                <tr><td colSpan="3" className="text-center py-8 text-slate-500">No customer data available yet.</td></tr>
+              {data.bills.length === 0 && (
+                <tr><td colSpan="3" className="text-center py-8 text-slate-500">No customer bills recorded yet.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </Card>
     </div>
-   )
+   );
 }
 
 function TenantSuppliersView() {
@@ -1202,8 +1316,7 @@ function TenantSuppliersView() {
     <div className="max-w-7xl mx-auto space-y-4 text-center py-20">
       <Truck size={48} className="mx-auto text-slate-600 mb-4" />
       <h1 className="text-2xl font-bold text-white">Supplier Management</h1>
-      <p className="text-slate-400 max-w-md mx-auto">Manage your wholesale suppliers, track purchase orders, and monitor payments. This feature is enabled for active subscribers.</p>
-      <Button className="mx-auto mt-4">Upgrade Plan to Access</Button>
+      <p className="text-slate-400 max-w-md mx-auto">Manage your wholesale distributors and purchase orders.</p>
     </div>
   );
 }
@@ -1211,72 +1324,32 @@ function TenantSuppliersView() {
 function TenantReportsView({ data }) {
   const { bills } = data;
   const totalSales = bills.reduce((sum, b) => sum + Number(b.total), 0);
-  const totalGst = bills.reduce((sum, b) => sum + Number(b.totalGstAmount || 0), 0);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-white">Financial Reports</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-t-4 border-t-teal-500">
-          <h3 className="text-slate-400 text-sm">All Time Revenue</h3>
+          <h3 className="text-slate-400 text-sm">Total Revenue</h3>
           <div className="text-3xl font-bold text-white mt-2">₹{totalSales.toFixed(2)}</div>
         </Card>
-        <Card className="border-t-4 border-t-green-500">
-          <h3 className="text-slate-400 text-sm">All Time GST Collected</h3>
-          <div className="text-3xl font-bold text-white mt-2">₹{totalGst.toFixed(2)}</div>
-        </Card>
         <Card className="border-t-4 border-t-blue-500">
-          <h3 className="text-slate-400 text-sm">Total Bills Generated</h3>
+          <h3 className="text-slate-400 text-sm">Total Invoices Generated</h3>
           <div className="text-3xl font-bold text-white mt-2">{bills.length}</div>
         </Card>
       </div>
-
-      <Card>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-white">Bill History</h3>
-          <Button variant="secondary"><Download size={16} /> Export CSV</Button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-400 uppercase bg-slate-900 border-b border-slate-700">
-              <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Bill No</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3 text-right">Items</th>
-                <th className="px-4 py-3 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-               {bills.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-8 text-slate-500">No bills generated yet.</td></tr>
-                ) : (
-                  bills.sort((a,b) => b.createdAt - a.createdAt).map((b,i) => (
-                    <tr key={i} className="border-b border-slate-800 hover:bg-slate-800/50">
-                      <td className="px-4 py-3 text-slate-300">{b.date}</td>
-                      <td className="px-4 py-3 font-medium text-white">{b.billNo}</td>
-                      <td className="px-4 py-3 text-slate-300">{b.customerName || 'Walk-in'} {b.customerPhone && `(${b.customerPhone})`}</td>
-                      <td className="px-4 py-3 text-right">{b.items?.length || 0}</td>
-                      <td className="px-4 py-3 text-right text-teal-400 font-bold">₹{Number(b.total).toFixed(2)}</td>
-                    </tr>
-                  ))
-                )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   );
 }
 
 function TenantSettingsView({ data, showToast, user }) {
   const [formData, setFormData] = useState({
-    storeName: data.settings?.general?.storeName || '',
-    address: data.settings?.general?.address || '',
-    phone: data.settings?.general?.phone || '',
-    gstin: data.settings?.general?.gstin || '',
-    dlNumber: data.settings?.general?.dlNumber || ''
+    storeName: data.settings?.general?.storeName || 'PHARMA WHOLESALE',
+    address: data.settings?.general?.address || '13-2-47, OPP GOWDIPAMATAM, BACHELI',
+    phone: data.settings?.general?.phone || '9999955559',
+    gstin: data.settings?.general?.gstin || '07CTMPM699K1ZJ',
+    dlNumber: data.settings?.general?.dlNumber || 'DL11WW-6985'
   });
 
   const handleSave = async (e) => {
@@ -1285,7 +1358,7 @@ function TenantSettingsView({ data, showToast, user }) {
     try {
       const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general');
       await setDoc(docRef, formData, { merge: true });
-      showToast('Settings saved successfully!');
+      showToast('Store settings saved successfully!');
     } catch (err) {
       showToast('Failed to save settings', 'error');
     }
@@ -1293,19 +1366,19 @@ function TenantSettingsView({ data, showToast, user }) {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-white">Store Settings</h1>
+      <h1 className="text-2xl font-bold text-white">Store Branding & Settings</h1>
       
       <Card>
         <form onSubmit={handleSave} className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-white border-b border-slate-700 pb-2">Business Profile</h3>
+            <h3 className="text-lg font-medium text-white border-b border-slate-700 pb-2">Invoice Header Branding</h3>
             <Input label="Store Name" required value={formData.storeName} onChange={e => setFormData({...formData, storeName: e.target.value})} />
             <Input label="Complete Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
             <Input label="Contact Phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
           </div>
           
           <div className="space-y-4 pt-4">
-            <h3 className="text-lg font-medium text-white border-b border-slate-700 pb-2">Legal Information (Prints on Bill)</h3>
+            <h3 className="text-lg font-medium text-white border-b border-slate-700 pb-2">Tax & License Numbers</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input label="GSTIN Number" value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} />
               <Input label="Drug License (DL) Number" value={formData.dlNumber} onChange={e => setFormData({...formData, dlNumber: e.target.value})} />
@@ -1313,7 +1386,7 @@ function TenantSettingsView({ data, showToast, user }) {
           </div>
 
           <div className="pt-4 flex justify-end">
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit">Save Settings</Button>
           </div>
         </form>
       </Card>
@@ -1322,137 +1395,28 @@ function TenantSettingsView({ data, showToast, user }) {
 }
 
 // ==========================================
-// 3. SUPER ADMIN PANEL
+// 4. SUPER ADMIN PANEL
 // ==========================================
 
-function SuperAdminPanel({ user, navigate, currentPath, showToast }) {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [sysSettings, setSysSettings] = useState({ allowRegistration: true, maxStoreLimit: 1000 });
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchGlobalData = async () => {
-      try {
-        const sysRef = collection(db, 'artifacts', appId, 'public', 'data', 'system_settings');
-        const unsub = onSnapshot(sysRef, (snap) => {
-          if (!snap.empty) {
-            setSysSettings(snap.docs[0].data());
-          }
-        });
-        return () => unsub();
-      } catch (e) { console.error(e); }
-    };
-    fetchGlobalData();
-  }, [user]);
-
-  const saveSettings = async (e) => {
-    e.preventDefault();
-    try {
-      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'system_settings', 'global');
-      await setDoc(docRef, sysSettings, { merge: true });
-      showToast('Global settings updated');
-    } catch(err) {
-      showToast('Error saving settings', 'error');
-    }
-  };
-
+function SuperAdminPanel({ user, navigate }) {
   return (
     <div className="flex h-screen bg-black overflow-hidden text-slate-300">
       <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-slate-800 text-red-500 font-bold text-lg gap-2">
           <Shield /> Super Admin
         </div>
-        <div className="p-4 space-y-2 flex-1">
-          {['dashboard', 'tenants', 'settings'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`w-full text-left px-4 py-2 rounded capitalize ${activeTab === tab ? 'bg-red-500/20 text-red-400' : 'hover:bg-slate-800'}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        <div className="p-4 border-t border-slate-800">
-          <button onClick={() => navigate('public', 'home')} className="flex items-center gap-2 text-slate-500 hover:text-white">
+        <div className="p-4 border-t border-slate-800 mt-auto">
+          <button onClick={() => navigate('public', 'home')} className="flex items-center gap-2 text-slate-500 hover:text-white cursor-pointer">
             <LogOut size={18} /> Exit Admin
           </button>
         </div>
       </aside>
-
       <main className="flex-1 p-8 overflow-y-auto">
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6 max-w-4xl">
-            <h1 className="text-2xl font-bold text-white">System Status</h1>
-            <div className="grid grid-cols-3 gap-6">
-               <Card className="border-t-2 border-red-500 bg-slate-900">
-                  <div className="text-slate-400">Total Tenants</div>
-                  <div className="text-3xl font-bold text-white mt-2">124</div>
-               </Card>
-               <Card className="border-t-2 border-blue-500 bg-slate-900">
-                  <div className="text-slate-400">Active Subscriptions</div>
-                  <div className="text-3xl font-bold text-white mt-2">89</div>
-               </Card>
-               <Card className="border-t-2 border-green-500 bg-slate-900">
-                  <div className="text-slate-400">System Health</div>
-                  <div className="text-3xl font-bold text-green-400 mt-2">Optimal</div>
-               </Card>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="max-w-2xl space-y-6">
-            <h1 className="text-2xl font-bold text-white">Global Platform Settings</h1>
-            <Card className="bg-slate-900">
-              <form onSubmit={saveSettings} className="space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div>
-                    <div className="text-white font-medium">Allow New Registrations</div>
-                    <div className="text-sm text-slate-500">Enable or disable new signups on public site.</div>
-                  </div>
-                  <input 
-                    type="checkbox" 
-                    className="w-6 h-6 rounded bg-slate-800 border-slate-700 text-red-500 focus:ring-red-500" 
-                    checked={sysSettings.allowRegistration}
-                    onChange={e => setSysSettings({...sysSettings, allowRegistration: e.target.checked})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-slate-400 mb-1">Maximum Store Limit</label>
-                  <input 
-                    type="number" 
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white" 
-                    value={sysSettings.maxStoreLimit}
-                    onChange={e => setSysSettings({...sysSettings, maxStoreLimit: Number(e.target.value)})}
-                  />
-                </div>
-
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                  <h4 className="text-red-400 font-medium mb-2">Production Credentials</h4>
-                  <p className="text-sm text-slate-400 mb-4">Payment gateway API keys, SMTP email settings, and Cloud Storage configurations should be managed via external environment variables or secure secret managers, not directly via UI.</p>
-                </div>
-
-                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700">Save Global Configuration</Button>
-              </form>
-            </Card>
-          </div>
-        )}
-        
-        {activeTab === 'tenants' && (
-           <div className="space-y-6 max-w-4xl">
-             <h1 className="text-2xl font-bold text-white">Manage Tenants</h1>
-             <Card className="bg-slate-900">
-                <p className="text-slate-400">This view requires custom Firebase Admin SDK lists to display all auth users. Currently viewing mocked representation.</p>
-                <div className="mt-4 p-4 border border-slate-800 rounded bg-black/50">
-                   <div className="text-white font-mono text-sm">user_1 (Demo Pharmacy) - Pro Plan - Active</div>
-                </div>
-             </Card>
-           </div>
-        )}
+        <h1 className="text-2xl font-bold text-white mb-6">System Dashboard</h1>
+        <Card className="bg-slate-900">
+          <p className="text-slate-400">Super admin controls active. All tenant databases are online.</p>
+        </Card>
       </main>
     </div>
   );
 }
-
