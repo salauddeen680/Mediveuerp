@@ -1,11 +1,11 @@
-// src/utils/invoiceTemplate.js
+import React from 'react';
 
-export const printInvoice = (activeInvoice, handlePrint, handleShareWhatsApp) => {
+export const renderMargInvoice = (activeInvoice, handlePrint, handleShareWhatsApp) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2 print:hidden">
-        <button onClick={handlePrint} className="bg-teal-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">Print / Download PDF</button>
-        <button onClick={handleShareWhatsApp} className="bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 border border-slate-700">Share WhatsApp</button>
+        <button onClick={handlePrint} className="bg-teal-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium cursor-pointer">Print / PDF</button>
+        <button onClick={handleShareWhatsApp} className="bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 border border-slate-700 font-medium cursor-pointer">WhatsApp</button>
       </div>
 
       <div id="invoice-print-area" className="bg-white text-black p-6 rounded-lg border-2 border-black text-[11px] font-sans">
@@ -41,23 +41,23 @@ export const printInvoice = (activeInvoice, handlePrint, handleShareWhatsApp) =>
           <p><span className="font-bold">GSTIN:</span> {activeInvoice.customerGstin}</p>
         </div>
 
-        {/* Marg Style Item Table */}
+        {/* Exact Marg-Style Table Structure matching the reference image */}
         <table className="w-full border-collapse border border-black mb-2 text-[10px]">
           <thead>
             <tr className="bg-cyan-100 border-b-2 border-black text-center font-bold">
               <th className="border border-black p-1 w-8">S.</th>
-              <th className="border border-black p-1 w-12">Qty</th>
+              <th className="border border-black p-1 w-10">Qty.</th>
               <th className="border border-black p-1 w-12">Pack</th>
-              <th className="border border-black p-1 text-left">Product Description</th>
-              <th className="border border-black p-1 w-16">Batch</th>
-              <th className="border border-black p-1 w-12">Exp</th>
-              <th className="border border-black p-1 w-14">HSN</th>
-              <th className="border border-black p-1 w-14">MRP</th>
-              <th className="border border-black p-1 w-14">Rate</th>
-              <th className="border border-black p-1 w-12">DIS%</th>
-              <th className="border border-black p-1 w-10">SGST</th>
-              <th className="border border-black p-1 w-10">CGST</th>
-              <th className="border border-black p-1 text-right w-16">Amount</th>
+              <th className="border border-black p-1 text-left">Product</th>
+              <th className="border border-black p-1 w-14">BATCH</th>
+              <th className="border border-black p-1 w-10">EXP</th>
+              <th className="border border-black p-1 w-12">HSN</th>
+              <th className="border border-black p-1 w-12">MRP</th>
+              <th className="border border-black p-1 w-12">Rate</th>
+              <th className="border border-black p-1 w-10">DIS</th>
+              <th className="border border-black p-1 w-8">SGST</th>
+              <th className="border border-black p-1 w-8">CGST</th>
+              <th className="border border-black p-1 text-right w-14">Amount</th>
             </tr>
           </thead>
           <tbody>
@@ -115,4 +115,3 @@ export const printInvoice = (activeInvoice, handlePrint, handleShareWhatsApp) =>
     </div>
   );
 };
-
