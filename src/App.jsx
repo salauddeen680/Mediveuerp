@@ -1,4 +1,3 @@
-```react
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Menu, X, Home, CreditCard, Package, Users, Truck, FileText, 
@@ -76,7 +75,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         <div className="flex justify-between items-center p-4 border-b border-slate-700 sticky top-0 bg-slate-800 z-10">
           <h2 className="text-xl font-semibold text-white">{title}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
-            <X size={20} />
+            <X size="{20}"/>
           </button>
         </div>
         <div className="p-6">
@@ -99,7 +98,7 @@ const Toast = ({ message, type = 'success', onClose }) => {
       type === 'error' ? 'bg-red-900/90 border-red-500 text-red-100' : 
       'bg-slate-800/90 border-slate-600 text-slate-100'
     }`}>
-      {type === 'success' ? <CheckCircle size={18} /> : <AlertTriangle size={18} />}
+      {type === 'success' ? <CheckCircle size="{18}"/> : <AlertTriangle size="{18}"/>}
       <span className="font-medium">{message}</span>
     </div>
   );
@@ -192,7 +191,7 @@ export default function App() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-teal-400 gap-4">
-        <Activity className="animate-spin" size={48} />
+        <Activity className="animate-spin" size="{48}"/>
         <p className="text-slate-400 font-medium">Connecting to MEDIVEU Cloud...</p>
       </div>
     );
@@ -202,7 +201,7 @@ export default function App() {
      return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
         <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-8 max-w-md text-center">
-           <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
+           <AlertTriangle className="text-red-500 mx-auto mb-4" size="{48}"/>
            <h2 className="text-xl font-bold text-white mb-2">Connection Error</h2>
            <p className="text-slate-400 text-sm mb-6">Unable to connect to authentication servers. If you are in a preview environment, check if API keys are fully loaded.</p>
            <p className="text-xs text-red-400/80 p-3 bg-black/30 rounded">{authError}</p>
@@ -213,17 +212,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30">
-      {currentView === 'public' && <PublicWebsite navigate={navigate} />}
+      {currentView === 'public' && <PublicWebsite navigate="{navigate}"/>}
       {currentView === 'tenant' && (
-        <TenantDashboard 
-          user={user} navigate={navigate} currentPath={currentPath} showToast={showToast}
-          data={{ medicines, bills, customers, suppliers, settings }}
-        />
+        <TenantDashboard bills, currentPath="{currentPath}" customers, data="{{" medicines, navigate="{navigate}" settings showToast="{showToast}" suppliers, user="{user}" }}/>
       )}
       {currentView === 'admin' && (
-        <SuperAdminPanel user={user} navigate={navigate} currentPath={currentPath} showToast={showToast} />
+        <SuperAdminPanel currentPath="{currentPath}" navigate="{navigate}" showToast="{showToast}" user="{user}"/>
       )}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && <Toast message="{toast.message}" onClose="{()" type="{toast.type}"> setToast(null)} />}
     </div>
   );
 }
@@ -245,14 +241,14 @@ function PublicWebsite({ navigate }) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'home': return <HomeView setActiveTab={setActiveTab} />;
-      case 'features': return <FeaturesView />;
-      case 'pricing': return <PricingView />;
-      case 'contact': return <ContactView />;
-      case 'login': return <LoginView navigate={navigate} />;
-      case 'register': return <RegisterView navigate={navigate} />;
-      case 'admin-login': return <AdminLoginView navigate={navigate} />;
-      default: return <HomeView setActiveTab={setActiveTab} />;
+      case 'home': return <HomeView setActiveTab="{setActiveTab}"/>;
+      case 'features': return <FeaturesView/>;
+      case 'pricing': return <PricingView/>;
+      case 'contact': return <ContactView/>;
+      case 'login': return <LoginView navigate="{navigate}"/>;
+      case 'register': return <RegisterView navigate="{navigate}"/>;
+      case 'admin-login': return <AdminLoginView navigate="{navigate}"/>;
+      default: return <HomeView setActiveTab="{setActiveTab}"/>;
     }
   };
 
@@ -263,7 +259,7 @@ function PublicWebsite({ navigate }) {
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
               <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-teal-500/20">
-                <Plus size={24} />
+                <Plus size="{24}"/>
               </div>
               <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
                 MEDIVEU <span className="text-teal-400">ERP</span>
@@ -282,13 +278,13 @@ function PublicWebsite({ navigate }) {
               ))}
               <div className="flex items-center gap-4 ml-4 pl-4 border-l border-slate-800">
                 <button onClick={() => setActiveTab('login')} className="text-sm font-medium text-slate-300 hover:text-white">Login</button>
-                <Button onClick={() => setActiveTab('register')}>Start Free Trial</Button>
+                <Button onClick="{()"> setActiveTab('register')}>Start Free Trial</Button>
               </div>
             </div>
 
             <div className="md:hidden flex items-center">
               <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-300 hover:text-white">
-                {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+                {isMobileMenuOpen ? <X size="{28}"/> : <Menu size="{28}"/>}
               </button>
             </div>
           </div>
@@ -319,7 +315,7 @@ function PublicWebsite({ navigate }) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div className="col-span-1 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <Plus className="text-teal-400" size={24} />
+                <Plus className="text-teal-400" size="{24}"/>
                 <span className="text-xl font-bold text-white">MEDIVEU ERP</span>
               </div>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
@@ -385,11 +381,11 @@ const HomeView = ({ setActiveTab }) => (
           Manage inventory, generate GST bills, track expiry dates, and grow your pharmacy business with MEDIVEU's intelligent cloud-based platform.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Button onClick={() => setActiveTab('register')} className="w-full sm:w-auto px-8 py-4 text-lg">
+          <Button onClick="{()"> setActiveTab('register')} className="w-full sm:w-auto px-8 py-4 text-lg">
             Start 7-Day Free Trial
           </Button>
-          <Button variant="secondary" onClick={() => setActiveTab('features')} className="w-full sm:w-auto px-8 py-4 text-lg">
-            View Features <ChevronRight size={20} className="ml-1" />
+          <Button onClick="{()" variant="secondary"> setActiveTab('features')} className="w-full sm:w-auto px-8 py-4 text-lg">
+            View Features <ChevronRight className="ml-1" size="{20}"/>
           </Button>
         </div>
       </div>
@@ -405,14 +401,14 @@ const FeaturesView = () => (
     </div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       {[
-        { icon: <FileText size={32} />, title: "Smart Billing (POS)", desc: "Lightning fast billing with barcode scanning, GST calculation, and custom discounts." },
-        { icon: <Package size={32} />, title: "Inventory Management", desc: "Track stock levels, set reorder points, and manage multiple batches effortlessly." },
-        { icon: <AlertTriangle size={32} />, title: "Expiry Alerts", desc: "Never lose money on expired medicine again. Get automated alerts before stock expires." },
-        { icon: <Activity size={32} />, title: "Advanced Reports", desc: "Generate daily sales, GST, profit, and inventory reports with one click." },
-        { icon: <Users size={32} />, title: "Customer CRM", desc: "Track customer purchase history, manage outstanding balances, and send WhatsApp bills." },
-        { icon: <Database size={32} />, title: "Cloud Backup", desc: "Your data is automatically backed up securely to the cloud. Never lose a single record." },
+        { icon: <FileText size="{32}"/>, title: "Smart Billing (POS)", desc: "Lightning fast billing with barcode scanning, GST calculation, and custom discounts." },
+        { icon: <Package size="{32}"/>, title: "Inventory Management", desc: "Track stock levels, set reorder points, and manage multiple batches effortlessly." },
+        { icon: <AlertTriangle size="{32}"/>, title: "Expiry Alerts", desc: "Never lose money on expired medicine again. Get automated alerts before stock expires." },
+        { icon: <Activity size="{32}"/>, title: "Advanced Reports", desc: "Generate daily sales, GST, profit, and inventory reports with one click." },
+        { icon: <Users size="{32}"/>, title: "Customer CRM", desc: "Track customer purchase history, manage outstanding balances, and send WhatsApp bills." },
+        { icon: <Database size="{32}"/>, title: "Cloud Backup", desc: "Your data is automatically backed up securely to the cloud. Never lose a single record." },
       ].map((feature, i) => (
-        <Card key={i} className="hover:bg-slate-800 transition-colors cursor-pointer group">
+        <Card className="hover:bg-slate-800 transition-colors cursor-pointer group" key="{i}">
           <div className="w-14 h-14 bg-teal-500/10 text-teal-400 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
             {feature.icon}
           </div>
@@ -443,7 +439,7 @@ const PricingView = () => (
         <ul className="space-y-4 mb-8">
           {['Unlimited Bills', 'Unlimited Inventory', 'Cloud Backup', 'Basic Reports', 'Email Support'].map((f, i) => (
             <li key={i} className="flex items-center gap-3 text-slate-300">
-              <Check size={18} className="text-teal-400" /> {f}
+              <Check className="text-teal-400" size="{18}"/> {f}
             </li>
           ))}
         </ul>
@@ -464,7 +460,7 @@ const PricingView = () => (
         <ul className="space-y-4 mb-8">
           {['Everything in Monthly', 'Advanced Analytics', 'WhatsApp Integration', 'Priority 24/7 Support', 'Multiple Users'].map((f, i) => (
             <li key={i} className="flex items-center gap-3 text-slate-300">
-              <Check size={18} className="text-teal-400" /> {f}
+              <Check className="text-teal-400" size="{18}"/> {f}
             </li>
           ))}
         </ul>
@@ -484,21 +480,21 @@ const ContactView = () => (
       <div>
         <div className="space-y-8">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><MapPin /></div>
+            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><MapPin/></div>
             <div>
               <h4 className="text-white font-medium mb-1">Office</h4>
               <p className="text-slate-400">123 Health Tech Park, Andheri East,<br/>Mumbai, Maharashtra 400069</p>
             </div>
           </div>
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><Phone /></div>
+            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><Phone/></div>
             <div>
               <h4 className="text-white font-medium mb-1">Phone</h4>
               <p className="text-slate-400">+91 1800-123-4567</p>
             </div>
           </div>
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><Mail /></div>
+            <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-teal-400 shrink-0"><Mail/></div>
             <div>
               <h4 className="text-white font-medium mb-1">Email</h4>
               <p className="text-slate-400">support@mediveuerp.com</p>
@@ -508,8 +504,8 @@ const ContactView = () => (
       </div>
       <Card>
         <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-          <Input label="Name" placeholder="John Doe" />
-          <Input label="Email" type="email" placeholder="john@example.com" />
+          <Input label="Name" placeholder="John Doe"/>
+          <Input label="Email" placeholder="john@example.com" type="email"/>
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Message</label>
             <textarea className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500 transition-colors h-32 resize-none" placeholder="How can we help?"></textarea>
@@ -534,9 +530,9 @@ const LoginView = ({ navigate }) => {
           <p className="text-slate-400">Login to your MEDIVEU dashboard</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-6">
-          <Input label="Email Address" type="email" placeholder="admin@mystore.com" required />
-          <Input label="Password" type="password" placeholder="••••••••" required />
-          <Button type="submit" className="w-full">Login</Button>
+          <Input label="Email Address" placeholder="admin@mystore.com" required type="email"/>
+          <Input label="Password" placeholder="••••••••" required type="password"/>
+          <Button className="w-full" type="submit">Login</Button>
         </form>
       </Card>
     </div>
@@ -556,10 +552,10 @@ const RegisterView = ({ navigate }) => {
           <p className="text-slate-400">No credit card required.</p>
         </div>
         <form onSubmit={handleRegister} className="space-y-6">
-          <Input label="Store Name" placeholder="City Pharmacy" required />
-          <Input label="Email Address" type="email" placeholder="admin@mystore.com" required />
-          <Input label="Password" type="password" placeholder="••••••••" required />
-          <Button type="submit" className="w-full">Create Account</Button>
+          <Input label="Store Name" placeholder="City Pharmacy" required/>
+          <Input label="Email Address" placeholder="admin@mystore.com" required type="email"/>
+          <Input label="Password" placeholder="••••••••" required type="password"/>
+          <Button className="w-full" type="submit">Create Account</Button>
         </form>
       </Card>
     </div>
@@ -581,15 +577,15 @@ const AdminLoginView = ({ navigate }) => {
       <Card className="border-red-500/30">
         <div className="text-center mb-8">
           <div className="mx-auto w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mb-4">
-            <Shield size={24} />
+            <Shield size="{24}"/>
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Super Admin System</h2>
           <p className="text-slate-400">Restricted Access Only</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-6">
-          <Input label="Admin Password" type="password" value={pwd} onChange={e => {setPwd(e.target.value); setError(false)}} required />
+          <Input label="Admin Password" onChange="{e" type="password" value="{pwd}"> {setPwd(e.target.value); setError(false)}} required />
           {error && <p className="text-red-400 text-sm text-center">Invalid credentials (hint: admin123)</p>}
-          <Button type="submit" className="w-full bg-red-600 hover:bg-red-700">Access Console</Button>
+          <Button className="w-full bg-red-600 hover:bg-red-700" type="submit">Access Console</Button>
         </form>
       </Card>
     </div>
@@ -604,25 +600,25 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
-    { id: 'billing', label: 'Billing (POS)', icon: <CreditCard size={20} /> },
-    { id: 'medicines', label: 'Medicines', icon: <Package size={20} /> },
-    { id: 'customers', label: 'Customers', icon: <Users size={20} /> },
-    { id: 'suppliers', label: 'Suppliers', icon: <Truck size={20} /> },
-    { id: 'reports', label: 'Reports', icon: <FileText size={20} /> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
+    { id: 'dashboard', label: 'Dashboard', icon: <Home size="{20}"/> },
+    { id: 'billing', label: 'Billing (POS)', icon: <CreditCard size="{20}"/> },
+    { id: 'medicines', label: 'Medicines', icon: <Package size="{20}"/> },
+    { id: 'customers', label: 'Customers', icon: <Users size="{20}"/> },
+    { id: 'suppliers', label: 'Suppliers', icon: <Truck size="{20}"/> },
+    { id: 'reports', label: 'Reports', icon: <FileText size="{20}"/> },
+    { id: 'settings', label: 'Settings', icon: <Settings size="{20}"/> },
   ];
 
   const renderContent = () => {
     switch (currentPath) {
-      case 'dashboard': return <TenantDashboardView data={data} />;
-      case 'billing': return <TenantBillingView data={data} showToast={showToast} user={user} />;
-      case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
-      case 'customers': return <TenantCustomersView data={data} showToast={showToast} user={user} />;
-      case 'suppliers': return <TenantSuppliersView />;
-      case 'reports': return <TenantReportsView data={data} />;
-      case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
-      default: return <TenantDashboardView data={data} />;
+      case 'dashboard': return <TenantDashboardView data="{data}"/>;
+      case 'billing': return <TenantBillingView data="{data}" showToast="{showToast}" user="{user}"/>;
+      case 'medicines': return <TenantMedicinesView data="{data}" showToast="{showToast}" user="{user}"/>;
+      case 'customers': return <TenantCustomersView data="{data}" showToast="{showToast}" user="{user}"/>;
+      case 'suppliers': return <TenantSuppliersView/>;
+      case 'reports': return <TenantReportsView data="{data}"/>;
+      case 'settings': return <TenantSettingsView data="{data}" showToast="{showToast}" user="{user}"/>;
+      default: return <TenantDashboardView data="{data}"/>;
     }
   };
 
@@ -633,11 +629,11 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between h-16 px-4 border-b border-slate-800">
           <div className="flex items-center gap-2">
-            <Plus className="text-teal-400" size={24} />
+            <Plus className="text-teal-400" size="{24}"/>
             <span className="font-bold text-lg text-white truncate">{storeName}</span>
           </div>
           <button className="md:hidden text-slate-400" onClick={() => setIsSidebarOpen(false)}>
-            <X size={20} />
+            <X size="{20}"/>
           </button>
         </div>
         <div className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-64px)]">
@@ -659,7 +655,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
               onClick={() => navigate('public', 'home')}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
             >
-              <LogOut size={20} />
+              <LogOut size="{20}"/>
               Logout
             </button>
           </div>
@@ -669,7 +665,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, data }) {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 sticky top-0 z-30">
           <button className="md:hidden text-slate-400 p-2" onClick={() => setIsSidebarOpen(true)}>
-            <Menu size={24} />
+            <Menu size="{24}"/>
           </button>
           <div className="hidden md:flex items-center text-slate-300">
             <span className="capitalize font-medium">{currentPath.replace('-', ' ')}</span>
@@ -703,10 +699,10 @@ function TenantDashboardView({ data }) {
     <div className="space-y-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Today's Sales" value={`₹${todaySales.toFixed(2)}`} icon={<TrendingUp size={24} />} color="text-green-400" bg="bg-green-500/10" />
-        <StatCard title="Total Bills (Today)" value={todayBills.length} icon={<FileText size={24} />} color="text-blue-400" bg="bg-blue-500/10" />
-        <StatCard title="Low Stock Items" value={lowStock} icon={<AlertTriangle size={24} />} color="text-orange-400" bg="bg-orange-500/10" />
-        <StatCard title="Total Customers" value={customers.length} icon={<Users size={24} />} color="text-teal-400" bg="bg-teal-500/10" />
+        <StatCard icon="{<TrendingUp" size="{24}" title="Today's Sales" value="{`₹${todaySales.toFixed(2)}`}"/>} color="text-green-400" bg="bg-green-500/10" />
+        <StatCard icon="{<FileText" size="{24}" title="Total Bills (Today)" value="{todayBills.length}"/>} color="text-blue-400" bg="bg-blue-500/10" />
+        <StatCard icon="{<AlertTriangle" size="{24}" title="Low Stock Items" value="{lowStock}"/>} color="text-orange-400" bg="bg-orange-500/10" />
+        <StatCard icon="{<Users" size="{24}" title="Total Customers" value="{customers.length}"/>} color="text-teal-400" bg="bg-teal-500/10" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -742,7 +738,7 @@ function TenantDashboardView({ data }) {
           <h3 className="text-lg font-semibold text-white mb-4">Stock Alerts</h3>
           {medicines.filter(m => Number(m.stock) < 10).length === 0 ? (
              <div className="text-center py-8 text-slate-500 flex flex-col items-center">
-               <CheckCircle size={32} className="text-green-500/50 mb-2" />
+               <CheckCircle className="text-green-500/50 mb-2" size="{32}"/>
                All stock levels are optimal.
              </div>
           ) : (
@@ -889,7 +885,7 @@ function TenantBillingView({ data, showToast, user }) {
       <div className="flex-1 flex flex-col gap-4">
         <Card className="p-4 flex-shrink-0 relative overflow-visible z-20">
           <div className="relative">
-            <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+            <Search className="absolute left-3 top-3 text-slate-400" size="{20}"/>
             <input 
               type="text" 
               placeholder="Search by Medicine Name or Barcode..." 
@@ -961,7 +957,7 @@ function TenantBillingView({ data, showToast, user }) {
                       <td className="px-4 py-3 text-right">₹{item.originalPrice}</td>
                       <td className="px-4 py-3 text-right font-medium text-teal-400">₹{(item.qty * item.originalPrice).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
-                        <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-300"><Trash2 size={16} /></button>
+                        <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-300"><Trash2 size="{16}"/></button>
                       </td>
                     </tr>
                   ))
@@ -975,8 +971,8 @@ function TenantBillingView({ data, showToast, user }) {
       <Card className="w-full md:w-80 flex-shrink-0 flex flex-col h-full overflow-y-auto">
         <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4">Customer Details</h3>
         <div className="space-y-3 mb-6">
-          <Input placeholder="Customer Phone (Optional)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
-          <Input placeholder="Customer Name (Optional)" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+          <Input onChange="{e" placeholder="Customer Phone (Optional)" value="{customerPhone}"> setCustomerPhone(e.target.value)} />
+          <Input onChange="{e" placeholder="Customer Name (Optional)" value="{customerName}"> setCustomerName(e.target.value)} />
         </div>
 
         <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4 mt-auto">Bill Summary</h3>
@@ -1011,11 +1007,7 @@ function TenantBillingView({ data, showToast, user }) {
           </div>
         </div>
 
-        <Button 
-          className="w-full py-4 text-lg font-bold" 
-          onClick={handleGenerateBill} 
-          disabled={cart.length === 0 || isProcessing}
-        >
+        <Button 0 className="w-full py-4 text-lg font-bold" disabled="{cart.length" isProcessing} onClick="{handleGenerateBill}" ||>
           {isProcessing ? 'Processing...' : 'Generate Bill'}
         </Button>
       </Card>
@@ -1074,13 +1066,13 @@ function TenantMedicinesView({ data, showToast, user }) {
     <div className="max-w-7xl mx-auto space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold text-white">Inventory Management</h1>
-        <Button onClick={() => handleOpen()}><Plus size={18} /> Add Medicine</Button>
+        <Button onClick="{()"> handleOpen()}><Plus size="{18}"/> Add Medicine</Button>
       </div>
 
       <Card className="p-0 overflow-hidden">
         <div className="p-4 border-b border-slate-700">
            <div className="relative max-w-md">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <Search className="absolute left-3 top-2.5 text-slate-400" size="{18}"/>
             <input 
               type="text" placeholder="Search medicines..." 
               className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-teal-500"
@@ -1120,8 +1112,8 @@ function TenantMedicinesView({ data, showToast, user }) {
                     </td>
                     <td className="px-6 py-4 font-medium">₹{med.mrp}</td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => handleOpen(med)} className="text-teal-400 hover:text-teal-300 mx-2"><Edit size={16} /></button>
-                      <button onClick={() => handleDelete(med.id)} className="text-red-400 hover:text-red-300"><Trash2 size={16} /></button>
+                      <button onClick={() => handleOpen(med)} className="text-teal-400 hover:text-teal-300 mx-2"><Edit size="{16}"/></button>
+                      <button onClick={() => handleDelete(med.id)} className="text-red-400 hover:text-red-300"><Trash2 size="{16}"/></button>
                     </td>
                   </tr>
                 ))
@@ -1131,21 +1123,21 @@ function TenantMedicinesView({ data, showToast, user }) {
         </div>
       </Card>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Medicine" : "Add Medicine"}>
+      <Modal isOpen="{isModalOpen}" onClose="{()"> setIsModalOpen(false)} title={editingId ? "Edit Medicine" : "Add Medicine"}>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Medicine Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-            <Input label="Generic Name" value={formData.genericName} onChange={e => setFormData({...formData, genericName: e.target.value})} />
-            <Input label="Barcode" value={formData.barcode} onChange={e => setFormData({...formData, barcode: e.target.value})} />
-            <Input label="Batch Number" required value={formData.batch} onChange={e => setFormData({...formData, batch: e.target.value})} />
-            <Input label="Expiry Date" type="month" required value={formData.expiry} onChange={e => setFormData({...formData, expiry: e.target.value})} />
-            <Input label="Initial Stock" type="number" required value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
-            <Input label="Purchase Price (₹)" type="number" step="0.01" required value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: Number(e.target.value)})} />
-            <Input label="MRP (₹)" type="number" step="0.01" required value={formData.mrp} onChange={e => setFormData({...formData, mrp: Number(e.target.value)})} />
-            <Input label="GST (%)" type="number" required value={formData.gst} onChange={e => setFormData({...formData, gst: Number(e.target.value)})} />
+            <Input label="Medicine Name" onChange="{e" required value="{formData.name}"> setFormData({...formData, name: e.target.value})} />
+            <Input label="Generic Name" onChange="{e" value="{formData.genericName}"> setFormData({...formData, genericName: e.target.value})} />
+            <Input label="Barcode" onChange="{e" value="{formData.barcode}"> setFormData({...formData, barcode: e.target.value})} />
+            <Input label="Batch Number" onChange="{e" required value="{formData.batch}"> setFormData({...formData, batch: e.target.value})} />
+            <Input label="Expiry Date" onChange="{e" required type="month" value="{formData.expiry}"> setFormData({...formData, expiry: e.target.value})} />
+            <Input label="Initial Stock" onChange="{e" required type="number" value="{formData.stock}"> setFormData({...formData, stock: Number(e.target.value)})} />
+            <Input label="Purchase Price (₹)" onChange="{e" required step="0.01" type="number" value="{formData.purchasePrice}"> setFormData({...formData, purchasePrice: Number(e.target.value)})} />
+            <Input label="MRP (₹)" onChange="{e" required step="0.01" type="number" value="{formData.mrp}"> setFormData({...formData, mrp: Number(e.target.value)})} />
+            <Input label="GST (%)" onChange="{e" required type="number" value="{formData.gst}"> setFormData({...formData, gst: Number(e.target.value)})} />
           </div>
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick="{()" type="button" variant="ghost"> setIsModalOpen(false)}>Cancel</Button>
             <Button type="submit">Save Medicine</Button>
           </div>
         </form>
@@ -1204,7 +1196,7 @@ function TenantCustomersView({ data }) {
 function TenantSuppliersView() {
   return (
     <div className="max-w-7xl mx-auto space-y-4 text-center py-20">
-      <Truck size={48} className="mx-auto text-slate-600 mb-4" />
+      <Truck className="mx-auto text-slate-600 mb-4" size="{48}"/>
       <h1 className="text-2xl font-bold text-white">Supplier Management</h1>
       <p className="text-slate-400 max-w-md mx-auto">Manage your wholesale suppliers, track purchase orders, and monitor payments. This feature is enabled for active subscribers.</p>
       <Button className="mx-auto mt-4">Upgrade Plan to Access</Button>
@@ -1239,7 +1231,7 @@ function TenantReportsView({ data }) {
       <Card>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-white">Bill History</h3>
-          <Button variant="secondary"><Download size={16} /> Export CSV</Button>
+          <Button variant="secondary"><Download size="{16}"/> Export CSV</Button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -1303,16 +1295,16 @@ function TenantSettingsView({ data, showToast, user }) {
         <form onSubmit={handleSave} className="space-y-6">
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-white border-b border-slate-700 pb-2">Business Profile</h3>
-            <Input label="Store Name" required value={formData.storeName} onChange={e => setFormData({...formData, storeName: e.target.value})} />
-            <Input label="Complete Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-            <Input label="Contact Phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+            <Input label="Store Name" onChange="{e" required value="{formData.storeName}"> setFormData({...formData, storeName: e.target.value})} />
+            <Input label="Complete Address" onChange="{e" value="{formData.address}"> setFormData({...formData, address: e.target.value})} />
+            <Input label="Contact Phone" onChange="{e" value="{formData.phone}"> setFormData({...formData, phone: e.target.value})} />
           </div>
           
           <div className="space-y-4 pt-4">
             <h3 className="text-lg font-medium text-white border-b border-slate-700 pb-2">Legal Information (Prints on Bill)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="GSTIN Number" value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} />
-              <Input label="Drug License (DL) Number" value={formData.dlNumber} onChange={e => setFormData({...formData, dlNumber: e.target.value})} />
+              <Input label="GSTIN Number" onChange="{e" value="{formData.gstin}"> setFormData({...formData, gstin: e.target.value})} />
+              <Input label="Drug License (DL) Number" onChange="{e" value="{formData.dlNumber}"> setFormData({...formData, dlNumber: e.target.value})} />
             </div>
           </div>
 
@@ -1364,7 +1356,7 @@ function SuperAdminPanel({ user, navigate, currentPath, showToast }) {
     <div className="flex h-screen bg-black overflow-hidden text-slate-300">
       <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-slate-800 text-red-500 font-bold text-lg gap-2">
-          <Shield /> Super Admin
+          <Shield/> Super Admin
         </div>
         <div className="p-4 space-y-2 flex-1">
           {['dashboard', 'tenants', 'settings'].map(tab => (
@@ -1379,7 +1371,7 @@ function SuperAdminPanel({ user, navigate, currentPath, showToast }) {
         </div>
         <div className="p-4 border-t border-slate-800">
           <button onClick={() => navigate('public', 'home')} className="flex items-center gap-2 text-slate-500 hover:text-white">
-            <LogOut size={18} /> Exit Admin
+            <LogOut size="{18}"/> Exit Admin
           </button>
         </div>
       </aside>
@@ -1438,7 +1430,7 @@ function SuperAdminPanel({ user, navigate, currentPath, showToast }) {
                   <p className="text-sm text-slate-400 mb-4">Payment gateway API keys, SMTP email settings, and Cloud Storage configurations should be managed via external environment variables or secure secret managers, not directly via UI.</p>
                 </div>
 
-                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700">Save Global Configuration</Button>
+                <Button className="w-full bg-red-600 hover:bg-red-700" type="submit">Save Global Configuration</Button>
               </form>
             </Card>
           </div>
@@ -1459,7 +1451,3 @@ function SuperAdminPanel({ user, navigate, currentPath, showToast }) {
     </div>
   );
 }
-
-
-```
-
