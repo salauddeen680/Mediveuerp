@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Menu, X, Home, CreditCard, Package, Users, Truck, FileText, 
   Settings, LogOut, Plus, Edit, Trash2, Search, Printer, 
@@ -6,37 +6,11 @@ import {
   Database, UserCheck, Phone, Mail, MapPin, Check, ChevronRight,
   TrendingUp, Box, ShoppingCart, Share2
 } from 'lucide-react';
-import { 
-  initializeApp 
-} from 'firebase/app';
-import { 
-  getAuth, onAuthStateChanged,
-  createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut
-} from 'firebase/auth';
-import { 
-  getFirestore, collection, doc, setDoc, getDocs, onSnapshot, 
-  deleteDoc, updateDoc, addDoc, serverTimestamp 
-} from 'firebase/firestore';
 
-// --- FIREBASE SETUP ---
-// src/firebase.js
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
-
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-
+// Import auth and db from external firebase setup file
+import { auth, db } from './firebase';
+import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { collection, doc, setDoc, getDocs, onSnapshot, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // --- UTILITY COMPONENTS ---
 
@@ -129,7 +103,7 @@ export default function App() {
   // Safe Auth Initialization with Timeout protection against infinite loading
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (authLoading) setAuthLoading(false); // Fallback so screen never freezes
+      if (authLoading) setAuthLoading(false); 
     }, 3000);
 
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -156,23 +130,23 @@ export default function App() {
     if (!user || currentView !== 'tenant') return;
 
     const unsubs = [
-      onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'medicines'), 
+      onSnapshot(collection(db, 'users', user.uid, 'medicines'), 
         (snap) => setMedicines(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
         (err) => console.error("Meds Sync Error:", err)
       ),
-      onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'bills'), 
+      onSnapshot(collection(db, 'users', user.uid, 'bills'), 
         (snap) => setBills(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
         (err) => console.error("Bills Sync Error:", err)
       ),
-      onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'customers'), 
+      onSnapshot(collection(db, 'users', user.uid, 'customers'), 
         (snap) => setCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
         (err) => console.error("Customers Sync Error:", err)
       ),
-      onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'suppliers'), 
+      onSnapshot(collection(db, 'users', user.uid, 'suppliers'), 
         (snap) => setSuppliers(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
         (err) => console.error("Suppliers Sync Error:", err)
       ),
-      onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'settings'), 
+      onSnapshot(collection(db, 'users', user.uid, 'settings'), 
         (snap) => {
           const settingsData = {};
           snap.docs.forEach(d => settingsData[d.id] = d.data());
@@ -441,8 +415,6 @@ const ContactView = () => (
   </div>
 );
 
-// --- FIXED LOGIN & REGISTRATION ---
-
 const LoginView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -498,7 +470,7 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
-      await setDoc(doc(db, 'artifacts', appId, 'users', newUser.uid, 'settings', 'general'), {
+      await setDoc(doc(db, 'users', newUser.uid, 'settings', 'general'), {
         storeName: storeName || 'Pharma Wholesale',
         address: '13-2-47, Opp Gowdiyamatam, Behind Football Ground, Bacheli',
         phone: '9999955559',
@@ -867,11 +839,11 @@ function TenantBillingView({ data, showToast, user }) {
         status: 'PAID'
       };
 
-      await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'bills'), billData);
+      await addDoc(collection(db, 'users', user.uid, 'bills'), billData);
 
       for (const item of cart) {
         if(item.id) {
-          const medRef = doc(db, 'artifacts', appId, 'users', user.uid, 'medicines', item.id);
+          const medRef = doc(db, 'users', user.uid, 'medicines', item.id);
           const newStock = Number(item.stock || 0) - item.qty;
           await updateDoc(medRef, { stock: newStock });
         }
@@ -1169,7 +1141,7 @@ function TenantMedicinesView({ data, showToast, user }) {
     e.preventDefault();
     if (!user) return showToast('Please authenticate first', 'error');
     try {
-      const colRef = collection(db, 'artifacts', appId, 'users', user.uid, 'medicines');
+      const colRef = collection(db, 'users', user.uid, 'medicines');
       if (editingId) {
         await updateDoc(doc(colRef, editingId), { ...formData, updatedAt: serverTimestamp() });
         showToast('Medicine updated!');
@@ -1185,7 +1157,7 @@ function TenantMedicinesView({ data, showToast, user }) {
 
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this medicine?')) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'medicines', id));
+      await deleteDoc(doc(db, 'users', user.uid, 'medicines', id));
       showToast('Medicine deleted');
     }
   };
@@ -1352,7 +1324,7 @@ function TenantSettingsView({ data, showToast, user }) {
     e.preventDefault();
     if (!user) return;
     try {
-      const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'settings', 'general');
+      const docRef = doc(db, 'users', user.uid, 'settings', 'general');
       await setDoc(docRef, formData, { merge: true });
       showToast('Store settings saved successfully!');
     } catch (err) {
@@ -1412,4 +1384,3 @@ function SuperAdminPanel({ user, navigate }) {
     </div>
   );
 }
-
