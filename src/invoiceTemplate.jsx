@@ -41,7 +41,7 @@ export const renderMargInvoice = (activeInvoice, handlePrint, handleShareWhatsAp
           <p><span className="font-bold">GSTIN:</span> {activeInvoice.customerGstin}</p>
         </div>
 
-        {/* Exact Marg-Style Table Structure matching the reference image */}
+        {/* Exact Marg-Style Table Structure */}
         <table className="w-full border-collapse border border-black mb-2 text-[10px]">
           <thead>
             <tr className="bg-cyan-100 border-b-2 border-black text-center font-bold">
