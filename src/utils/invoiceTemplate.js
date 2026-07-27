@@ -1,3 +1,5 @@
+import React from 'react';
+
 export const renderMargInvoice = (activeInvoice, handlePrint, handleShareWhatsApp) => {
   return (
     <div className="space-y-4">
