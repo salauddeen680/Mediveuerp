@@ -41,7 +41,7 @@ export default function AdminPanel({ navigate }) {
           storeName,
           phone: storePhone,
           status: status,
-          plan: plan, // e.g., 'Monthly (₹249)' or 'Yearly (₹2999)'
+          plan: plan, 
           createdAt: userDoc.data().createdAt || Date.now()
         });
       }
@@ -76,10 +76,10 @@ export default function AdminPanel({ navigate }) {
 
   const activeStores = tenants.filter(t => t.status === 'Active');
   const monthlyCount = activeStores.filter(t => t.plan.includes('249') || t.plan.toLowerCase().includes('monthly')).length;
-  const yearlyCount = activeStores.filter(t => t.plan.includes('2999') || t.plan.toLowerCase().includes('yearly')).length;
+  const yearlyCount = activeStores.filter(t => t.plan.includes('2799') || t.plan.toLowerCase().includes('yearly')).length;
   
-  // Total Revenue Calculation based on plans
-  const totalRevenue = (monthlyCount * 249) + (yearlyCount * 2999);
+  // Total Revenue Calculation based on plans (₹249 monthly, ₹2799 yearly)
+  const totalRevenue = (monthlyCount * 249) + (yearlyCount * 2799);
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
@@ -130,7 +130,7 @@ export default function AdminPanel({ navigate }) {
             <div className="text-3xl font-bold text-teal-400 mt-2">{monthlyCount} Active</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <div className="text-slate-400 text-sm font-medium">Yearly Plans (₹2999)</div>
+            <div className="text-slate-400 text-sm font-medium">Yearly Plans (₹2,799)</div>
             <div className="text-3xl font-bold text-indigo-400 mt-2">{yearlyCount} Active</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
@@ -202,7 +202,7 @@ export default function AdminPanel({ navigate }) {
                       <td className="px-6 py-4 text-slate-300">{t.phone}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                          t.plan.includes('2999') || t.plan.toLowerCase().includes('yearly')
+                          t.plan.includes('2799') || t.plan.toLowerCase().includes('yearly')
                             ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
                             : 'bg-teal-500/10 text-teal-400 border-teal-500/20'
                         }`}>
