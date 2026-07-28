@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Save, Printer, Download, Share2, Plus, Trash2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export default function BillingPOS({ data, user, showToast }) {
   // Store Settings
@@ -53,6 +55,8 @@ export default function BillingPOS({ data, user, showToast }) {
   const [totals, setTotals] = useState({
     taxableValue: 0, discount: 0, cgst: 0, sgst: 0, igst: 0, roundoff: 0, grandTotal: 0
   });
+
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Calculations
   useEffect(() => {
@@ -112,50 +116,79 @@ export default function BillingPOS({ data, user, showToast }) {
     }
   };
 
-  // 🔥 NAYA SHARE SYSTEM (WhatsApp, Insta, FB ke liye) 🔥
-  const handleShare = async () => {
-    const shareData = {
-      title: `Invoice from ${storeSettings.storeName}`,
-      text: `Please find your invoice (Bill No: ${invoiceDetails.invoiceNumber}) for ₹${totals.grandTotal}.`,
-      url: window.location.href, 
-    };
+  // 🔥 DIRECT PDF DOWNLOAD LOGIC 🔥
+  const handleDownloadPDF = async () => {
+    setIsProcessing(true);
+    showToast('Generating PDF...');
+    const element = document.getElementById('printable-invoice');
+    
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${invoiceDetails.invoiceNumber}.pdf`);
+      showToast('PDF Downloaded Successfully!');
+    } catch (err) {
+      showToast('Failed to generate PDF', 'error');
+    }
+    setIsProcessing(false);
+  };
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.log('Error sharing:', err);
-      }
-    } else {
-      showToast('Sharing not supported on this browser. Link copied!');
-      navigator.clipboard.writeText(window.location.href);
+  // 🔥 DIRECT SHARE BILL AS IMAGE LOGIC 🔥
+  const handleShare = async () => {
+    setIsProcessing(true);
+    showToast('Preparing Bill Image for Share...');
+    const element = document.getElementById('printable-invoice');
+
+    try {
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      canvas.toBlob(async (blob) => {
+        const file = new File([blob], `${invoiceDetails.invoiceNumber}.png`, { type: 'image/png' });
+        
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: `Invoice ${invoiceDetails.invoiceNumber}`,
+            text: `Please find the attached invoice from ${storeSettings.storeName} for ₹${totals.grandTotal}.`,
+            files: [file],
+          });
+        } else {
+          showToast('File sharing is not supported on this device. Trying to download instead...', 'error');
+          // Agar browser allow nahi karta toh image download kara do
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `${invoiceDetails.invoiceNumber}.png`;
+          link.click();
+        }
+        setIsProcessing(false);
+      }, 'image/png');
+    } catch (err) {
+      showToast('Failed to prepare share file', 'error');
+      setIsProcessing(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8 font-sans print:bg-white print:p-0">
       
-      {/* 🔥 FIX: YEH CSS SIRF BILL KO DIKHAYEGI AUR BAAKI SAB GAYAB KAR DEGI 🔥 */}
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 10mm; }
           body * { visibility: hidden; }
           #printable-invoice, #printable-invoice * { visibility: visible; }
           #printable-invoice {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            border: none !important;
-            box-shadow: none !important;
+            position: absolute; left: 0; top: 0; width: 100%;
+            border: none !important; box-shadow: none !important;
           }
-          /* Remove inputs outline and background for print */
           input, textarea { border: none !important; background: transparent !important; resize: none !important; }
           input::placeholder, textarea::placeholder { color: transparent !important; }
         }
       `}</style>
 
-      {/* INVOICE PAPER (Print Content) */}
+      {/* INVOICE PAPER */}
       <div className="w-full max-w-[210mm] mx-auto bg-white text-black shadow-2xl rounded-sm overflow-hidden border border-gray-300" id="printable-invoice">
         
         {/* HEADER */}
@@ -238,7 +271,7 @@ export default function BillingPOS({ data, user, showToast }) {
                     <td className="border-r border-black p-1 relative">
                       {index + 1}
                       {items.length > 1 && (
-                        <button onClick={() => removeRow(index)} className="absolute -left-6 top-1 text-red-500 opacity-0 group-hover:opacity-100 print:hidden cursor-pointer">
+                        <button onClick={() => removeRow(index)} data-html2canvas-ignore="true" className="absolute -left-6 top-1 text-red-500 opacity-0 group-hover:opacity-100 print:hidden cursor-pointer">
                           <Trash2 size={14} />
                         </button>
                       )}
@@ -260,7 +293,7 @@ export default function BillingPOS({ data, user, showToast }) {
             </tbody>
           </table>
           
-          <div className="p-2 print:hidden absolute -bottom-10 left-0">
+          <div className="p-2 print:hidden absolute -bottom-10 left-0" data-html2canvas-ignore="true">
             <button onClick={addRow} className="flex items-center text-sm font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded border border-blue-200 cursor-pointer shadow-sm">
               <Plus size={16} className="mr-1" /> Add Row
             </button>
@@ -288,11 +321,7 @@ export default function BillingPOS({ data, user, showToast }) {
 
             <div className="p-2 text-xs">
               <div className="font-bold underline mb-1">Terms & conditions</div>
-              <textarea 
-                className="w-full outline-none bg-transparent resize-none h-16 text-black" 
-                value={terms} 
-                onChange={e => setTerms(e.target.value)}
-              />
+              <textarea className="w-full outline-none bg-transparent resize-none h-16 text-black" value={terms} onChange={e => setTerms(e.target.value)} />
             </div>
           </div>
 
@@ -316,26 +345,25 @@ export default function BillingPOS({ data, user, showToast }) {
         </div>
       </div>
 
-      {/* 🔥 ACTION BUTTONS (print:hidden laga diya hai, print me 100% nahi dikhenge) 🔥 */}
+      {/* ACTION BUTTONS */}
       <div className="max-w-[210mm] mx-auto mt-6 flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 print:hidden shadow-lg">
         <div className="flex gap-4">
-          <button onClick={handleSaveBill} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-md cursor-pointer">
+          <button onClick={handleSaveBill} disabled={isProcessing} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-md cursor-pointer disabled:opacity-50">
             <Save size={18} className="mr-2" /> Save Bill
           </button>
           
-          <button onClick={() => window.print()} className="flex items-center bg-slate-600 hover:bg-slate-500 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-md border border-slate-500 cursor-pointer">
+          <button onClick={() => window.print()} disabled={isProcessing} className="flex items-center bg-slate-600 hover:bg-slate-500 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-md border border-slate-500 cursor-pointer disabled:opacity-50">
             <Printer size={18} className="mr-2" /> Print Bill
           </button>
         </div>
         
         <div className="flex gap-4">
-          <button onClick={() => window.print()} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-md cursor-pointer">
+          <button onClick={handleDownloadPDF} disabled={isProcessing} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-md cursor-pointer disabled:opacity-50">
             <Download size={18} className="mr-2" /> Save as PDF
           </button>
           
-          {/* 🔥 NEW SHARE BUTTON 🔥 */}
-          <button onClick={handleShare} className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-md cursor-pointer">
-            <Share2 size={18} className="mr-2" /> Share via Social
+          <button onClick={handleShare} disabled={isProcessing} className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-md cursor-pointer disabled:opacity-50">
+            <Share2 size={18} className="mr-2" /> Share
           </button>
         </div>
       </div>
