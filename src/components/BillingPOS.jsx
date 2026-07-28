@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trash2, Plus } from 'lucide-react';
+import { Search, Trash2, Plus, Printer, Share2 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { renderMargInvoice } from '../utils/invoiceTemplate';
@@ -141,28 +141,28 @@ export default function BillingPOS({ data, showToast, user }) {
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col md:flex-row gap-6 max-w-7xl mx-auto">
+    <div className="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto">
+      {/* Left Section: Search & POS Table */}
       <div className="flex-1 flex flex-col gap-4">
-        {/* Search Bar */}
-        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 relative z-20">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 relative z-20 shadow-lg">
           <div className="relative">
-            <Search className="absolute left-3 top-3 text-slate-400" size={20} />
+            <Search className="absolute left-3.5 top-3 text-slate-400" size={20} />
             <input 
               type="text" 
               placeholder="Search medicine by name or barcode..." 
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2.5 text-white focus:outline-none focus:border-teal-500"
+              className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-11 pr-4 py-3 text-white text-sm focus:outline-none focus:border-teal-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
           {searchTerm && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto z-50">
+            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto z-50">
               {filteredMeds.length > 0 ? (
                 filteredMeds.map(med => (
                   <div 
                     key={med.id} 
-                    className="p-3 hover:bg-slate-700 cursor-pointer border-b border-slate-700/50 flex justify-between items-center"
+                    className="p-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 flex justify-between items-center"
                     onClick={() => addToCart(med)}
                   >
                     <div>
@@ -176,21 +176,21 @@ export default function BillingPOS({ data, showToast, user }) {
                   </div>
                 ))
               ) : (
-                <div className="p-4 text-slate-400 text-center">No medicines found in inventory.</div>
+                <div className="p-4 text-slate-400 text-center text-sm">No medicines found in inventory.</div>
               )}
             </div>
           )}
         </div>
 
         {/* POS Items Table */}
-        <div className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden flex flex-col">
-          <div className="bg-slate-900 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-            <h3 className="font-semibold text-white">Billing Items (Marg Style POS)</h3>
-            <span className="text-sm text-slate-400">{cart.length} items</span>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-lg">
+          <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex justify-between items-center">
+            <h3 className="font-semibold text-white text-sm">Billing Items (Marg Style POS)</h3>
+            <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full">{cart.length} items</span>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="overflow-x-auto min-h-[300px]">
             <table className="w-full text-xs text-left">
-              <thead className="bg-slate-900/80 text-slate-400 uppercase border-b border-slate-700 sticky top-0">
+              <thead className="bg-slate-950/80 text-slate-400 uppercase border-b border-slate-800 sticky top-0">
                 <tr>
                   <th className="px-3 py-3">S.</th>
                   <th className="px-3 py-3">Qty</th>
@@ -210,19 +210,19 @@ export default function BillingPOS({ data, showToast, user }) {
               </thead>
               <tbody>
                 {cart.length === 0 ? (
-                  <tr><td colSpan="14" className="text-center py-12 text-slate-500">Cart is empty. Search items above to add.</td></tr>
+                  <tr><td colSpan="14" className="text-center py-16 text-slate-500">Cart is empty. Search items above to add.</td></tr>
                 ) : (
                   cart.map((item, idx) => {
                     const itemNet = (item.qty * item.originalPrice) * (1 - discountPercent/100);
                     const gstRate = Number(item.gst) || 12;
                     return (
-                      <tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/30">
-                        <td className="px-3 py-3">{idx + 1}</td>
+                      <tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/40">
+                        <td className="px-3 py-3 text-slate-400">{idx + 1}</td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-5 h-5 rounded bg-slate-700 text-white flex items-center justify-center cursor-pointer">-</button>
-                            <span className="w-6 text-center font-bold">{item.qty}</span>
-                            <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-5 h-5 rounded bg-slate-700 text-white flex items-center justify-center cursor-pointer">+</button>
+                            <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-5 h-5 rounded bg-slate-800 text-white flex items-center justify-center cursor-pointer hover:bg-slate-700">-</button>
+                            <span className="w-6 text-center font-bold text-white">{item.qty}</span>
+                            <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-5 h-5 rounded bg-slate-800 text-white flex items-center justify-center cursor-pointer hover:bg-slate-700">+</button>
                           </div>
                         </td>
                         <td className="px-3 py-3 text-slate-300">{item.pack || '10T'}</td>
@@ -249,25 +249,25 @@ export default function BillingPOS({ data, showToast, user }) {
         </div>
       </div>
 
-      {/* Sidebar Totals & Buyer Info */}
-      <div className="w-full md:w-80 bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 flex flex-col h-full overflow-y-auto">
-        <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4">Buyer Details</h3>
+      {/* Right Section: Buyer Details & Totals */}
+      <div className="w-full lg:w-80 bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col shadow-lg">
+        <h3 className="font-semibold text-white border-b border-slate-800 pb-3 mb-4 text-sm">Buyer Details</h3>
         <div className="space-y-3 mb-6">
           <div>
-            <label className="text-xs text-slate-400">Party Name</label>
-            <input className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm" value={customerName} onChange={e => setCustomerName(e.target.value)} />
+            <label className="text-xs text-slate-400 block mb-1">Party Name</label>
+            <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" value={customerName} onChange={e => setCustomerName(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-slate-400">Party GSTIN</label>
-            <input className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm" value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} />
+            <label className="text-xs text-slate-400 block mb-1">Party GSTIN</label>
+            <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-slate-400">Party Address</label>
-            <input className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} />
+            <label className="text-xs text-slate-400 block mb-1">Party Address</label>
+            <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} />
           </div>
         </div>
 
-        <h3 className="font-semibold text-white border-b border-slate-700 pb-3 mb-4 mt-auto">Invoice Totals</h3>
+        <h3 className="font-semibold text-white border-b border-slate-800 pb-3 mb-4 text-sm">Invoice Totals</h3>
         <div className="space-y-3 mb-6 text-sm">
           <div className="flex justify-between text-slate-300">
             <span>Subtotal</span>
@@ -277,7 +277,7 @@ export default function BillingPOS({ data, showToast, user }) {
             <span>Discount (%)</span>
             <input 
               type="number" 
-              className="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right text-white" 
+              className="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-right text-white focus:outline-none focus:border-teal-500" 
               value={discountPercent} 
               onChange={e => setDiscountPercent(Number(e.target.value))}
               min="0" max="100"
@@ -287,14 +287,14 @@ export default function BillingPOS({ data, showToast, user }) {
             <span>SGST / CGST</span>
             <span>₹{totalSgst.toFixed(2)} / ₹{totalCgst.toFixed(2)}</span>
           </div>
-          <div className="border-t border-slate-700 pt-3 flex justify-between font-bold text-lg text-white">
+          <div className="border-t border-slate-800 pt-3 flex justify-between font-bold text-lg text-white">
             <span>Grand Total</span>
             <span className="text-teal-400">₹{finalTotal.toFixed(2)}</span>
           </div>
         </div>
 
         <button 
-          className="w-full py-3 font-bold bg-gradient-to-r from-teal-500 to-green-500 text-white rounded-lg shadow-md hover:from-teal-600 hover:to-green-600 transition-all cursor-pointer disabled:opacity-50" 
+          className="w-full py-3 font-bold bg-gradient-to-r from-teal-500 to-green-500 text-white rounded-lg shadow-md hover:from-teal-600 hover:to-green-600 transition-all cursor-pointer disabled:opacity-50 text-sm mt-auto" 
           onClick={handleGenerateBill} 
           disabled={cart.length === 0 || isProcessing}
         >
@@ -315,4 +315,3 @@ export default function BillingPOS({ data, showToast, user }) {
     </div>
   );
 }
-
