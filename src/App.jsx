@@ -320,7 +320,6 @@ const ContactView = () => (
   </div>
 );
 
-// 🔥 UPDATE: Login Errors Clear Karne Ke Liye
 const LoginView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -352,7 +351,6 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
   );
 };
 
-// 🔥 UPDATE: Registration Errors Clear Karne Ke Liye
 const RegisterView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -367,7 +365,6 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
           try { 
             const res = await createUserWithEmailAndPassword(auth, email, password); 
             
-            // 1. MAIN DOCUMENT BANANA (Taki Admin mein 0 na dikhe)
             await setDoc(doc(db, 'users', res.user.uid), {
               email: email,
               status: 'Active',
@@ -375,7 +372,6 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
               createdAt: Date.now()
             });
 
-            // 2. SETTINGS SUB-COLLECTION BANANA
             await setDoc(doc(db, 'users', res.user.uid, 'settings', 'general'), { 
               storeName: storeName || 'Pharma Wholesale', 
               phone: '',
@@ -387,7 +383,6 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
             showToast('Account Created Successfully!'); 
             navigate('tenant', 'dashboard'); 
           } catch(err){ 
-            // Yahan error theek se dikhega user ko
             if (err.code === 'auth/email-already-in-use') {
               showToast('This Email is already registered! Please Login.', 'error');
             } else if (err.code === 'auth/weak-password') {
@@ -411,6 +406,9 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
 // TENANT DASHBOARD & VIEWS
 // ==========================================
 function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout, data }) {
+  // 🔥 NAYA CODE: Ye state bill pakadne ke kaam aayegi
+  const [billToEdit, setBillToEdit] = useState(null);
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
     { id: 'billing', label: 'Billing / POS', icon: <CreditCard size={20} /> },
@@ -423,10 +421,19 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
   const renderContent = () => {
     switch (currentPath) {
       case 'dashboard': return <TenantDashboardView data={data} />;
-      case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} />;
+      
+      // 🔥 NAYA CODE: BillingPOS ko billToEdit bheja gaya
+      case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} editBill={billToEdit} setBillToEdit={setBillToEdit} />;
+      
       case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
       case 'customers': return <TenantCustomersView data={data} />;
-      case 'reports': return <Reports data={data} />; // 🔥 UPDATE: Yahan direct nayi file link kar di
+      
+      // 🔥 NAYA CODE: Reports se button dabane par yahan billToEdit set hoga aur page change hoga
+      case 'reports': return <Reports data={data} onOpenBill={(bill) => {
+        setBillToEdit(bill);
+        navigate('tenant', 'billing');
+      }} />;
+      
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
       default: return <TenantDashboardView data={data} />;
     }
@@ -440,7 +447,15 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
         </div>
         <div className="p-4 space-y-1 flex-1 overflow-y-auto">
           {navItems.map(item => (
-            <button key={item.id} onClick={() => navigate('tenant', item.id)} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer ${currentPath === item.id ? 'bg-teal-500/10 text-teal-400' : 'text-slate-300 hover:bg-slate-800'}`}>
+            <button 
+              key={item.id} 
+              // 🔥 NAYA CODE: Agar side menu se Billing par click kiya to purana bill clear ho jayega
+              onClick={() => {
+                if (item.id === 'billing') setBillToEdit(null);
+                navigate('tenant', item.id);
+              }} 
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer ${currentPath === item.id ? 'bg-teal-500/10 text-teal-400' : 'text-slate-300 hover:bg-slate-800'}`}
+            >
               {item.icon} {item.label}
             </button>
           ))}
@@ -457,11 +472,9 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
   );
 }
 
-// 🔥 UPDATE: Dashboard mein NaN issue fix kar diya
 function TenantDashboardView({ data }) {
   const { medicines, bills } = data;
   
-  // Naye aur purane bill dono ka amount theek se pakdega
   const totalSales = bills.reduce((acc, b) => {
     const amount = b.totals?.grandTotal || b.total || 0;
     return acc + Number(amount);
