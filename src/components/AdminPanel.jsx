@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, CreditCard, Activity, LogOut, CheckCircle, AlertTriangle, Search, Lock, Unlock, RefreshCw } from 'lucide-react';
+import { Shield, Users, CreditCard, Activity, LogOut, CheckCircle, AlertTriangle, Search, Lock, Unlock, RefreshCw, Save } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+// Naye imports add kiye hain: getDoc, setDoc
+import { collection, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function AdminPanel({ navigate }) {
   const [tenants, setTenants] = useState([]);
@@ -11,8 +12,34 @@ export default function AdminPanel({ navigate }) {
   const [actionLoading, setActionLoading] = useState(null);
 
   useEffect(() => {
+    fetchAdminConfig(); // Limit fetch karega db se
     fetchTenants();
   }, []);
+
+  // Limit DB se lane ka function
+  const fetchAdminConfig = async () => {
+    try {
+      const configRef = doc(db, 'admin', 'config');
+      const configSnap = await getDoc(configRef);
+      if (configSnap.exists()) {
+        setGlobalUserLimit(configSnap.data().userLimit || 50);
+      } else {
+        await setDoc(configRef, { userLimit: 50 }); // First time banayega
+      }
+    } catch (error) {
+      console.error("Config fetch error:", error);
+    }
+  };
+
+  // Limit DB mein permanent save karne ka function
+  const saveLimitToDb = async () => {
+    try {
+      await setDoc(doc(db, 'admin', 'config'), { userLimit: globalUserLimit }, { merge: true });
+      alert("Success: Server capacity limit saved permanently!");
+    } catch (error) {
+      alert("Error: Failed to save limit to database.");
+    }
+  };
 
   const fetchTenants = async () => {
     try {
@@ -23,10 +50,12 @@ export default function AdminPanel({ navigate }) {
       for (const userDoc of querySnapshot.docs) {
         const userId = userDoc.id;
         const settingsSnap = await getDocs(collection(db, 'users', userId, 'settings'));
+        
         let storeName = 'Unknown Store';
         let storePhone = 'N/A';
+        // Data ab main document se bhi aayega (App.jsx update ke baad)
         let status = userDoc.data().status || 'Active';
-        let plan = userDoc.data().plan || 'Monthly (₹249)'; // Default plan
+        let plan = userDoc.data().plan || '7 Days Free Trial'; 
         
         settingsSnap.forEach(sDoc => {
           if (sDoc.id === 'general') {
@@ -63,7 +92,7 @@ export default function AdminPanel({ navigate }) {
       setTenants(tenants.map(t => t.id === tenantId ? { ...t, status: newStatus } : t));
     } catch (error) {
       console.error("Error updating status:", error);
-      alert("Failed to update store status.");
+      alert("Failed to update store status. Make sure the user document exists.");
     } finally {
       setActionLoading(null);
     }
@@ -78,12 +107,11 @@ export default function AdminPanel({ navigate }) {
   const monthlyCount = activeStores.filter(t => t.plan.includes('249') || t.plan.toLowerCase().includes('monthly')).length;
   const yearlyCount = activeStores.filter(t => t.plan.includes('2799') || t.plan.toLowerCase().includes('yearly')).length;
   
-  // Total Revenue Calculation based on plans (₹249 monthly, ₹2799 yearly)
+  // Total Revenue Calculation 
   const totalRevenue = (monthlyCount * 249) + (yearlyCount * 2799);
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
-      {/* Sidebar */}
       <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-slate-800 text-red-500 font-bold text-lg gap-2">
           <Shield size={24} /> Super Admin
@@ -104,12 +132,11 @@ export default function AdminPanel({ navigate }) {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto bg-slate-950">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">System Control Panel</h1>
-            <p className="text-slate-400 text-sm mt-1">Manage all registered medical stores, subscription plans (Monthly / Yearly), and access limits.</p>
+            <p className="text-slate-400 text-sm mt-1">Manage all registered medical stores, subscription plans, and access limits.</p>
           </div>
           <button 
             onClick={fetchTenants} 
@@ -148,14 +175,21 @@ export default function AdminPanel({ navigate }) {
               <p className="text-xs text-slate-400">Set maximum registered store capacity allowed on the server.</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <input 
               type="number" 
               value={globalUserLimit} 
               onChange={(e) => setGlobalUserLimit(Number(e.target.value))}
               className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white text-center focus:outline-none focus:border-red-500"
             />
-            <span className="text-xs bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/20 font-medium">
+            {/* Limit Save karne ka button */}
+            <button 
+              onClick={saveLimitToDb}
+              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <Save size={14} /> Save Limit
+            </button>
+            <span className="ml-2 text-xs bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/20 font-medium">
               {tenants.length >= globalUserLimit ? 'Limit Reached' : 'Capacity Safe'}
             </span>
           </div>
@@ -193,7 +227,7 @@ export default function AdminPanel({ navigate }) {
                 {loading ? (
                   <tr><td colSpan="6" className="text-center py-12 text-slate-500">Loading store databases...</td></tr>
                 ) : filteredTenants.length === 0 ? (
-                  <tr><td colSpan="6" className="text-center py-12 text-slate-500">No stores found matching your search.</td></tr>
+                  <tr><td colSpan="6" className="text-center py-12 text-slate-500">No stores found matching your search. (Try creating a new account first)</td></tr>
                 ) : (
                   filteredTenants.map((t) => (
                     <tr key={t.id} className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors">
