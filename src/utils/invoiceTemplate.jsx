@@ -1,53 +1,55 @@
 import React from 'react';
+import { Printer, Share2 } from 'lucide-react';
 
 export const renderMargInvoice = (invoice, handlePrint, handleShareWhatsApp) => {
   if (!invoice) return null;
 
   return (
-    <div className="bg-white text-black p-8 rounded-xl max-w-4xl mx-auto font-mono shadow-2xl border border-gray-300">
+    <div className="bg-white text-black p-6 rounded-xl max-w-4xl mx-auto font-mono shadow-2xl border border-gray-400 text-xs">
       
       {/* Top Header / Store Branding */}
-      <div className="text-center border-b-2 border-black pb-4 mb-3">
+      <div className="text-center border-b-2 border-black pb-3 mb-3">
         <h1 className="text-2xl font-black uppercase tracking-wider">{invoice.storeInfo?.storeName || 'PHARMA WHOLESALE'}</h1>
         <p className="text-xs font-medium">{invoice.storeInfo?.address || '13-2-47, OPP GOWDIPAMATAM, BACHELI'}</p>
         <p className="text-xs font-medium">
           Phone: {invoice.storeInfo?.phone || '9999955559'} | GSTIN: {invoice.storeInfo?.gstin || '07CTMPM699K1ZJ'}
         </p>
-        <p className="text-xs font-bold mt-1">Drug License No: {invoice.storeInfo?.dlNumber || 'DL11WW-6985'}</p>
+        <p className="text-xs font-bold mt-0.5">Drug License No: {invoice.storeInfo?.dlNumber || 'DL11WW-6985'}</p>
       </div>
 
-      {/* Bill & Party Details Box */}
-      <div className="border border-black text-xs mb-3">
+      {/* Bill & Party Details Box (Like Reference Invoices) */}
+      <div className="border border-black mb-3 text-xs">
         <div className="grid grid-cols-2 divide-x divide-black p-2 bg-gray-50">
           <div>
             <p><span className="font-bold">Invoice No:</span> {invoice.billNo}</p>
             <p><span className="font-bold">Invoice Date:</span> {invoice.date}</p>
+            <p><span className="font-bold">State Code:</span> 07-DELHI</p>
           </div>
           <div className="pl-2">
-            <p><span className="font-bold">Billed to:</span> {invoice.customerName}</p>
+            <p><span className="font-bold">Billed To:</span> {invoice.customerName}</p>
             <p><span className="font-bold">GSTIN:</span> {invoice.customerGstin || 'N/A'}</p>
             <p><span className="font-bold">Address:</span> {invoice.customerAddress || 'DELHI'}</p>
           </div>
         </div>
       </div>
 
-      {/* Marg Style Inventory Table */}
-      <table className="w-full text-xs border-collapse border border-black mb-4">
+      {/* Professional Marg Style Inventory Table */}
+      <table className="w-full border-collapse border border-black mb-3 text-[11px]">
         <thead>
-          <tr className="bg-teal-100/60 border-b border-black text-center font-bold">
-            <th className="border border-black p-1.5 w-8">S.</th>
-            <th className="border border-black p-1.5 w-12">Qty</th>
-            <th className="border border-black p-1.5 w-12">Pack</th>
-            <th className="border border-black p-1.5 text-left">Product Name</th>
-            <th className="border border-black p-1.5 w-16">BATCH</th>
-            <th className="border border-black p-1.5 w-14">EXP</th>
-            <th className="border border-black p-1.5 w-16">HSN</th>
-            <th className="border border-black p-1.5 w-14">MRP</th>
-            <th className="border border-black p-1.5 w-14">Rate</th>
-            <th className="border border-black p-1.5 w-12">DIS%</th>
-            <th className="border border-black p-1.5 w-12">SGST</th>
-            <th className="border border-black p-1.5 w-12">CGST</th>
-            <th className="border border-black p-1.5 text-right w-20">Amount</th>
+          <tr className="bg-teal-100/80 border-b border-black text-center font-bold">
+            <th className="border border-black p-1 w-8">S.</th>
+            <th className="border border-black p-1 w-10">Qty</th>
+            <th className="border border-black p-1 w-12">Pack</th>
+            <th className="border border-black p-1 text-left">Product Name</th>
+            <th className="border border-black p-1 w-16">BATCH</th>
+            <th className="border border-black p-1 w-12">EXP</th>
+            <th className="border border-black p-1 w-14">HSN</th>
+            <th className="border border-black p-1 w-12">MRP</th>
+            <th className="border border-black p-1 w-12">Rate</th>
+            <th className="border border-black p-1 w-10">DIS%</th>
+            <th className="border border-black p-1 w-10">SGST</th>
+            <th className="border border-black p-1 w-10">CGST</th>
+            <th className="border border-black p-1 text-right w-16">Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -55,14 +57,14 @@ export const renderMargInvoice = (invoice, handlePrint, handleShareWhatsApp) => 
             const itemNet = (item.qty * item.originalPrice) * (1 - (invoice.discountPercent || 0) / 100);
             const gstRate = Number(item.gst) || 12;
             return (
-              <tr key={idx} className="border-b border-black/30 hover:bg-gray-50">
+              <tr key={idx} className="border-b border-black/30">
                 <td className="border border-black p-1 text-center">{idx + 1}</td>
                 <td className="border border-black p-1 text-center font-bold">{item.qty}</td>
                 <td className="border border-black p-1 text-center">{item.pack || '10T'}</td>
                 <td className="border border-black p-1 font-bold uppercase">{item.name}</td>
-                <td className="border border-black p-1 text-center">{item.batch}</td>
-                <td className="border border-black p-1 text-center">{item.expiry}</td>
-                <td className="border border-black p-1 text-center">{item.hsn}</td>
+                <td className="border border-black p-1 text-center">{item.batch || 'B101'}</td>
+                <td className="border border-black p-1 text-center">{item.expiry || '12/26'}</td>
+                <td className="border border-black p-1 text-center">{item.hsn || '3004'}</td>
                 <td className="border border-black p-1 text-right">₹{item.mrp}</td>
                 <td className="border border-black p-1 text-right">₹{item.originalPrice}</td>
                 <td className="border border-black p-1 text-center">{invoice.discountPercent || 0}%</td>
@@ -75,15 +77,16 @@ export const renderMargInvoice = (invoice, handlePrint, handleShareWhatsApp) => 
         </tbody>
       </table>
 
-      {/* Totals and Summary Footer */}
-      <div className="grid grid-cols-2 border border-black text-xs mb-4">
+      {/* Totals and Bank Details Footer */}
+      <div className="grid grid-cols-2 border border-black mb-4 text-xs">
         <div className="p-2 border-r border-black flex flex-col justify-between">
           <div>
             <p className="font-bold underline mb-1">Bank Details:</p>
             <p>Bank Name: PUNJAB & SIND BANK</p>
+            <p>Branch: GEETA COLONY</p>
             <p>A/c No: 06261100054752 | IFSC: PSIB0000626</p>
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <p className="font-bold">Terms & Conditions:</p>
             <p className="text-[10px] text-gray-700">1. Goods once sold will not be taken back.<br/>2. Subject to local jurisdiction.</p>
           </div>
@@ -104,29 +107,29 @@ export const renderMargInvoice = (invoice, handlePrint, handleShareWhatsApp) => 
       <div className="flex justify-between items-end pt-2">
         <div className="text-[10px] font-bold text-gray-600">
           <p>Receiver's Signature:</p>
-          <div className="h-10 border-b border-dashed border-black w-40 mt-2"></div>
+          <div className="h-8 border-b border-dashed border-black w-36 mt-2"></div>
         </div>
         
-        {/* Action Buttons (Hidden when printing) */}
+        {/* Action Buttons (Print, WhatsApp) */}
         <div className="flex gap-2 print:hidden">
           <button 
             onClick={handleShareWhatsApp} 
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow transition-colors cursor-pointer flex items-center gap-1"
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow transition-colors cursor-pointer flex items-center gap-1"
           >
-            Share WhatsApp
+            <Share2 size={14} /> WhatsApp
           </button>
           <button 
             onClick={handlePrint} 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow transition-colors cursor-pointer flex items-center gap-1"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold shadow transition-colors cursor-pointer flex items-center gap-1"
           >
-            Print / Save PDF
+            <Printer size={14} /> Print / PDF
           </button>
         </div>
 
         <div className="text-right text-[10px] font-bold">
           <p>For {invoice.storeInfo?.storeName || 'PHARMA WHOLESALE'}</p>
-          <div className="h-10 border-b border-dashed border-black w-40 mt-2"></div>
-          <p className="mt-1">Authorised Signatory</p>
+          <div className="h-8 border-b border-dashed border-black w-36 mt-2"></div>
+          <p className="mt-0.5">Authorised Signatory</p>
         </div>
       </div>
 
