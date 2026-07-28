@@ -7,7 +7,8 @@ const Card = ({ children, className = '' }) => (
   </div>
 );
 
-export default function Reports({ data }) {
+// 🔥 1. UPDATE: Yahan 'onOpenBill' add kiya gaya hai
+export default function Reports({ data, onOpenBill }) {
   // Total Revenue Calculation (NaN error fix ke sath)
   const totalSales = data.bills.reduce((sum, b) => {
     const amount = b.totals?.grandTotal || b.total || 0;
@@ -73,8 +74,9 @@ export default function Reports({ data }) {
                     <td className="p-4 text-white uppercase">{partyName}</td>
                     <td className="p-4 font-bold text-green-400">₹{Number(amount).toFixed(2)}</td>
                     <td className="p-4 text-center">
+                      {/* 🔥 2. UPDATE: Yahan alert hata kar asli function lagaya hai */}
                       <button 
-                        onClick={() => alert(`Next update mein yeh ${invNo} direct BillingPOS mein open hoga edit ke liye!`)}
+                        onClick={() => onOpenBill(bill)}
                         className="text-blue-400 hover:text-white text-xs bg-blue-500/10 hover:bg-blue-500/30 px-3 py-1.5 rounded-md border border-blue-500/20 transition-all cursor-pointer"
                       >
                         Open Bill
@@ -97,4 +99,3 @@ export default function Reports({ data }) {
     </div>
   );
 }
-
