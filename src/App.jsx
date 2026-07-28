@@ -10,6 +10,7 @@ import { auth, db } from './firebase';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, getDocs, onSnapshot, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 
+// Biling code alag component se hi aayega, jaisa aapne set kiya tha
 import BillingPOS from './components/BillingPOS';
 import AdminPanel from './components/AdminPanel';
 
@@ -235,7 +236,6 @@ function PublicWebsite({ navigate, showToast }) {
   );
 }
 
-// 🔥 FIX: Ab Homepage par Features aur Pricing ek sath dikhenge, niche khali nahi rahega!
 const HomeView = ({ setActiveTab, showToast }) => (
   <>
     <div className="max-w-7xl mx-auto px-4 pt-24 pb-20 text-center">
@@ -264,7 +264,6 @@ const FeaturesView = () => (
 
 const PricingView = ({ setActiveTab, showToast }) => {
   const handleRazorpayCheckout = (planName, amount) => {
-    // Razorpay integration hook placeholder
     showToast(`Redirecting to Razorpay secure checkout for ${planName} (₹${amount})...`);
     setTimeout(() => {
       setActiveTab('register');
@@ -278,7 +277,6 @@ const PricingView = ({ setActiveTab, showToast }) => {
         <p className="text-slate-400">Choose the best plan for your medical store wholesale business.</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Free Trial Card */}
         <Card className="border-teal-500/50 flex flex-col justify-between">
           <div>
             <div className="text-teal-400 font-semibold mb-2">STARTER</div>
@@ -288,8 +286,6 @@ const PricingView = ({ setActiveTab, showToast }) => {
           </div>
           <Button onClick={() => setActiveTab('register')} className="w-full">Start Free Trial</Button>
         </Card>
-
-        {/* Monthly Plan */}
         <Card className="border-blue-500/50 flex flex-col justify-between bg-slate-800/80">
           <div>
             <div className="text-blue-400 font-semibold mb-2">MONTHLY PROFESSIONAL</div>
@@ -299,8 +295,6 @@ const PricingView = ({ setActiveTab, showToast }) => {
           </div>
           <Button onClick={() => handleRazorpayCheckout('Monthly Plan', 249)} className="w-full bg-blue-600 hover:bg-blue-700">Pay ₹249 via Razorpay</Button>
         </Card>
-
-        {/* Yearly Plan */}
         <Card className="border-green-500/50 flex flex-col justify-between">
           <div>
             <div className="text-green-400 font-semibold mb-2">BEST VALUE (SAVE MORE)</div>
@@ -325,6 +319,7 @@ const ContactView = () => (
   </div>
 );
 
+// 🔥 UPDATE: Login Errors Clear Karne Ke Liye
 const LoginView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -332,7 +327,20 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
     <div className="max-w-md mx-auto py-20 px-4">
       <Card>
         <h2 className="text-2xl font-bold text-white mb-4 text-center">Store Login</h2>
-        <form onSubmit={async e => { e.preventDefault(); try { await signInWithEmailAndPassword(auth, email, password); showToast('Logged in!'); navigate('tenant', 'dashboard'); } catch(err){ showToast('Login failed', 'error'); } }} className="space-y-4">
+        <form onSubmit={async e => { 
+          e.preventDefault(); 
+          try { 
+            await signInWithEmailAndPassword(auth, email, password); 
+            showToast('Logged in successfully!'); 
+            navigate('tenant', 'dashboard'); 
+          } catch(err){ 
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+              showToast('Invalid Email or Password!', 'error');
+            } else {
+              showToast(err.message.replace('Firebase:', ''), 'error'); 
+            }
+          } 
+        }} className="space-y-4">
           <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
           <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
           <Button type="submit" className="w-full">Login</Button>
@@ -343,7 +351,7 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
   );
 };
 
-// 🔥 FIX: Aapka diya hua RegisterView Code yahan add kiya hai taaki Admin panel mein "0 Stores" ki problem theek ho jaye
+// 🔥 UPDATE: Registration Errors Clear Karne Ke Liye
 const RegisterView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -378,7 +386,14 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
             showToast('Account Created Successfully!'); 
             navigate('tenant', 'dashboard'); 
           } catch(err){ 
-            showToast('Registration Failed', 'error'); 
+            // Yahan error theek se dikhega user ko
+            if (err.code === 'auth/email-already-in-use') {
+              showToast('This Email is already registered! Please Login.', 'error');
+            } else if (err.code === 'auth/weak-password') {
+              showToast('Password must be at least 6 characters.', 'error');
+            } else {
+              showToast(err.message.replace('Firebase:', ''), 'error'); 
+            }
           } 
         }} className="space-y-4">
           <Input label="Store Name" value={storeName} onChange={e => setStoreName(e.target.value)} required />
@@ -535,7 +550,6 @@ function TenantSettingsView({ data, showToast, user }) {
     }
   };
 
-  // Backup & Export Data Feature for User
   const handleExportBackup = () => {
     const backupData = {
       settings: data.settings,
@@ -569,7 +583,6 @@ function TenantSettingsView({ data, showToast, user }) {
         </form>
       </Card>
 
-      {/* User Backup & Export Section */}
       <Card className="border-teal-500/30">
         <h3 className="text-xl font-bold text-white mb-2">Data Backup & Export</h3>
         <p className="text-slate-400 text-sm mb-4">Download a complete JSON backup of your store inventory, bills, customers, and settings for safe keeping.</p>
