@@ -1,317 +1,318 @@
-import React, { useState } from 'react';
-import { Search, Trash2, Plus, Printer, Share2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { renderMargInvoice } from '../utils/invoiceTemplate';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { Save, Printer, Download, Share2, Plus, Trash2 } from 'lucide-react';
 
-export default function BillingPOS({ data, showToast, user }) {
-  const { medicines, bills, settings } = data;
-  const [cart, setCart] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [customerName, setCustomerName] = useState('M/s GUPTA STORE');
-  const [customerAddress, setCustomerAddress] = useState('SHOP NO.2, KAROL BAGH, DELHI - 110006');
-  const [customerGstin, setCustomerGstin] = useState('07CTMPM8957K1ZU');
-  const [discountPercent, setDiscountPercent] = useState(0);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [activeInvoice, setActiveInvoice] = useState(null);
-
-  const storeSettings = settings?.general || {
+export default function BillingPOS({ data, user, showToast }) {
+  // Store Settings (Fetched from props)
+  const storeSettings = data?.settings?.general || {
     storeName: 'PHARMA WHOLESALE',
-    address: '13-2-47, OPP GOWDIPAMATAM, BACHELI',
-    phone: '9999955559',
-    gstin: '07CTMPM699K1ZJ',
+    address: '13-2-47, OPP GOWDIYAMATAM, BEHIND FOOTBALL GROUND, BACHELI, 494553',
+    phone: '9999955559, 9999988877',
+    gstin: '07CTMPM6999K1ZJ',
     dlNumber: 'DL11WW-6985'
   };
 
-  const filteredMeds = searchTerm 
-    ? medicines.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()) || m.barcode === searchTerm)
-    : [];
-
-  const addToCart = (med) => {
-    const existing = cart.find(item => item.id === med.id);
-    if (existing) {
-      if (existing.qty >= med.stock) {
-        showToast(`Only ${med.stock} in stock!`, 'error');
-        return;
-      }
-      setCart(cart.map(item => item.id === med.id ? { ...item, qty: item.qty + 1 } : item));
-    } else {
-      if (med.stock < 1) {
-        showToast('Out of stock!', 'error');
-        return;
-      }
-      setCart([...cart, { 
-        ...med, 
-        qty: 1, 
-        originalPrice: Number(med.mrp) || 100,
-        hsn: med.hsn || '3004',
-        batch: med.batch || 'B-101',
-        expiry: med.expiry || '12/26',
-        gst: Number(med.gst) || 12,
-        pack: '10T'
-      }]);
-    }
-    setSearchTerm('');
-  };
-
-  const updateQty = (id, newQty) => {
-    if (newQty < 1) return;
-    const med = medicines.find(m => m.id === id);
-    if (med && newQty > med.stock) {
-       showToast(`Only ${med.stock} in stock!`, 'error');
-       return;
-    }
-    setCart(cart.map(item => item.id === id ? { ...item, qty: newQty } : item));
-  };
-
-  const removeFromCart = (id) => setCart(cart.filter(item => item.id !== id));
-
-  const subtotal = cart.reduce((acc, item) => acc + (item.qty * item.originalPrice), 0);
-  const discountAmount = subtotal * (discountPercent / 100);
-  const taxableTotal = subtotal - discountAmount;
-  
-  let totalSgst = 0;
-  let totalCgst = 0;
-  cart.forEach(item => {
-     const itemNet = (item.qty * item.originalPrice) * (1 - discountPercent/100);
-     const gstRate = Number(item.gst) || 12;
-     const taxAmt = itemNet * (gstRate / 100);
-     totalSgst += taxAmt / 2;
-     totalCgst += taxAmt / 2;
+  // Invoice Meta Data
+  const [invoiceDetails, setInvoiceDetails] = useState({
+    invoiceNumber: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+    invoiceDate: new Date().toISOString().split('T')[0],
+    stateCode: '07-DELHI',
+    panNo: '',
+    shippedGstin: '',
   });
 
-  const finalTotal = taxableTotal + totalSgst + totalCgst;
+  // Buyer & Transport Details
+  const [buyerDetails, setBuyerDetails] = useState({
+    name: 'M/s GUPTA STORE',
+    address: 'SHOP NO.2, KAROL BAGH, DELHI - 110006',
+    gstin: '07CTMPM8957K1ZU',
+    state: '07-DELHI',
+    transportParty: 'M/s GUPTA STORE',
+    transportGstin: '',
+    lrNo: '',
+    lrDate: new Date().toISOString().split('T')[0],
+  });
 
-  const handleGenerateBill = async () => {
-    if (cart.length === 0) return showToast('Cart is empty', 'error');
-    if (!user) return showToast('Please authenticate first', 'error');
-    setIsProcessing(true);
+  // Items List (Dynamic Rows)
+  const [items, setItems] = useState([
+    { id: 1, code: '', description: '', hsn: '', qty: 0, rate: 0, disPercent: 0, gstPercent: 12 }
+  ]);
 
-    try {
-      const today = new Date();
-      const dateStr = today.toISOString().split('T')[0];
-      const billCount = bills.length + 1;
-      const billNo = `A0000${billCount}`;
+  // Totals State
+  const [totals, setTotals] = useState({
+    taxableValue: 0,
+    discount: 0,
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    roundoff: 0,
+    grandTotal: 0
+  });
 
-      const billData = {
-        billNo,
-        date: dateStr,
-        timestamp: serverTimestamp(),
-        createdAt: Date.now(),
-        customerName: customerName || 'M/s GUPTA STORE',
-        customerAddress,
-        customerGstin,
-        items: cart,
-        subtotal,
-        discountPercent,
-        discountAmount,
-        taxableTotal,
-        totalSgst,
-        totalCgst,
-        total: finalTotal,
-        storeInfo: storeSettings,
-        status: 'PAID'
-      };
+  // Automatic Calculation whenever items change
+  useEffect(() => {
+    let tValue = 0;
+    let tDiscount = 0;
+    let tGst = 0;
 
-      await addDoc(collection(db, 'users', user.uid, 'bills'), billData);
+    items.forEach(item => {
+      const qty = Number(item.qty) || 0;
+      const rate = Number(item.rate) || 0;
+      const disP = Number(item.disPercent) || 0;
+      const gstP = Number(item.gstPercent) || 0;
 
-      for (const item of cart) {
-        if(item.id) {
-          const medRef = doc(db, 'users', user.uid, 'medicines', item.id);
-          const newStock = Number(item.stock || 0) - item.qty;
-          await updateDoc(medRef, { stock: newStock });
-        }
-      }
+      const baseAmount = qty * rate;
+      const disAmount = baseAmount * (disP / 100);
+      const afterDis = baseAmount - disAmount;
+      const gstAmount = afterDis * (gstP / 100);
 
-      showToast('Invoice generated successfully!');
-      setActiveInvoice(billData);
-      setCart([]);
-    } catch (error) {
-      console.error(error);
-      showToast('Failed to generate invoice', 'error');
-    } finally {
-      setIsProcessing(false);
+      tValue += baseAmount;
+      tDiscount += disAmount;
+      tGst += gstAmount;
+    });
+
+    const amountBeforeGst = tValue - tDiscount;
+    const exactTotal = amountBeforeGst + tGst;
+    const grandTotal = Math.round(exactTotal);
+    const roundoff = grandTotal - exactTotal;
+
+    setTotals({
+      taxableValue: amountBeforeGst,
+      discount: tDiscount,
+      cgst: tGst / 2, // Assuming Intra-state for now (CGST 6%, SGST 6%)
+      sgst: tGst / 2,
+      igst: 0,
+      roundoff: roundoff,
+      grandTotal: grandTotal
+    });
+  }, [items]);
+
+  // Handlers for Items
+  const handleItemChange = (index, field, value) => {
+    const newItems = [...items];
+    newItems[index][field] = value;
+    setItems(newItems);
+  };
+
+  const addRow = () => {
+    setItems([...items, { id: Date.now(), code: '', description: '', hsn: '', qty: 0, rate: 0, disPercent: 0, gstPercent: 12 }]);
+  };
+
+  const removeRow = (index) => {
+    if (items.length > 1) {
+      const newItems = items.filter((_, i) => i !== index);
+      setItems(newItems);
     }
   };
 
-  const handlePrint = () => window.print();
-  const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(`Invoice *${activeInvoice?.billNo}* from *${storeSettings.storeName}*. Total Amount: ₹${activeInvoice?.total.toFixed(2)}. Thank you!`);
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+  // Save Bill to Firestore
+  const handleSaveBill = async () => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'users', user.uid, 'bills'), {
+        invoiceDetails,
+        buyerDetails,
+        items,
+        totals,
+        createdAt: serverTimestamp()
+      });
+      showToast('Invoice Saved Successfully!');
+      window.print(); // Auto trigger print
+    } catch (error) {
+      showToast('Error saving invoice', 'error');
+    }
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 max-w-7xl mx-auto">
-      {/* Left Section: Search & POS Table */}
-      <div className="flex-1 flex flex-col gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 relative z-20 shadow-lg">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 text-slate-400" size={20} />
-            <input 
-              type="text" 
-              placeholder="Search medicine by name or barcode..." 
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-11 pr-4 py-3 text-white text-sm focus:outline-none focus:border-teal-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+    <div className="min-h-screen bg-slate-900 p-4 md:p-8 overflow-y-auto font-sans">
+      
+      {/* INVOICE PAPER (A4 Style) */}
+      <div className="max-w-5xl mx-auto bg-white text-black shadow-2xl rounded-sm overflow-hidden" id="printable-invoice">
+        
+        {/* HEADER SECTION */}
+        <div className="border-b-2 border-black p-4 text-center relative">
+          <div className="absolute right-4 top-4 text-xs font-bold text-gray-500">Original for Buyer</div>
+          <h1 className="text-3xl font-extrabold uppercase tracking-wide">{storeSettings.storeName}</h1>
+          <p className="text-sm font-medium mt-1 uppercase">{storeSettings.address}</p>
+          <p className="text-sm font-medium">Phone : {storeSettings.phone}</p>
+        </div>
+
+        {/* META DETAILS GRID */}
+        <div className="grid grid-cols-2 border-b-2 border-black text-sm">
+          <div className="p-2 border-r-2 border-black flex flex-col gap-1">
+            <div className="flex"><span className="w-32 font-bold">GSTIN :</span> <span>{storeSettings.gstin}</span></div>
+            <div className="flex items-center"><span className="w-32 font-bold">Invoice Number :</span> <input type="text" className="border-b border-gray-400 outline-none w-32" value={invoiceDetails.invoiceNumber} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceNumber: e.target.value})} /></div>
+            <div className="flex items-center"><span className="w-32 font-bold">Invoice Date :</span> <input type="date" className="border-b border-gray-400 outline-none w-32" value={invoiceDetails.invoiceDate} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceDate: e.target.value})} /></div>
+            <div className="flex"><span className="w-32 font-bold">State :</span> <span>{invoiceDetails.stateCode}</span></div>
           </div>
-          
-          {searchTerm && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl max-h-60 overflow-y-auto z-50">
-              {filteredMeds.length > 0 ? (
-                filteredMeds.map(med => (
-                  <div 
-                    key={med.id} 
-                    className="p-3 hover:bg-slate-800 cursor-pointer border-b border-slate-800 flex justify-between items-center"
-                    onClick={() => addToCart(med)}
-                  >
-                    <div>
-                      <div className="font-medium text-white">{med.name}</div>
-                      <div className="text-xs text-slate-400">Batch: {med.batch} | Exp: {med.expiry}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-teal-400 font-bold">₹{med.mrp}</div>
-                      <div className={`text-xs ${med.stock > 0 ? 'text-green-400' : 'text-red-400'}`}>{med.stock} in stock</div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-4 text-slate-400 text-center text-sm">No medicines found in inventory.</div>
-              )}
+          <div className="p-2 flex flex-col gap-1">
+            <div className="flex"><span className="w-32 font-bold">PAN NO. :</span> <input type="text" className="border-b border-gray-400 outline-none w-40 uppercase" value={invoiceDetails.panNo} onChange={e => setInvoiceDetails({...invoiceDetails, panNo: e.target.value})} /></div>
+            <div className="font-bold mt-1 underline">SHIPPED TO PARTY:</div>
+            <div className="flex items-center"><span className="w-32 font-bold">GSTIN :</span> <input type="text" className="border-b border-gray-400 outline-none w-40 uppercase" value={invoiceDetails.shippedGstin} onChange={e => setInvoiceDetails({...invoiceDetails, shippedGstin: e.target.value})} /></div>
+            <div className="flex"><span className="w-32 font-bold">D.L. No :</span> <span>{storeSettings.dlNumber}</span></div>
+          </div>
+        </div>
+
+        {/* BUYER & TRANSPORT DETAILS */}
+        <div className="grid grid-cols-2 border-b-2 border-black text-sm">
+          <div className="p-2 border-r-2 border-black">
+            <div className="font-bold underline mb-1">Detail Of Receiver (Billed to)</div>
+            <div className="flex"><span className="w-20 font-bold">Name :</span> <input type="text" className="font-bold w-full outline-none uppercase" value={buyerDetails.name} onChange={e => setBuyerDetails({...buyerDetails, name: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-20 font-bold">Add. :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.address} onChange={e => setBuyerDetails({...buyerDetails, address: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-20 font-bold">GSTIN :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.gstin} onChange={e => setBuyerDetails({...buyerDetails, gstin: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-20 font-bold">State :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.state} onChange={e => setBuyerDetails({...buyerDetails, state: e.target.value})} /></div>
+          </div>
+          <div className="p-2">
+            <div className="font-bold underline mb-1">TRANSPORTATION</div>
+            <div className="flex"><span className="w-24 font-bold">Party :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.transportParty} onChange={e => setBuyerDetails({...buyerDetails, transportParty: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-24 font-bold">GSTIN :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.transportGstin} onChange={e => setBuyerDetails({...buyerDetails, transportGstin: e.target.value})} /></div>
+            <div className="flex gap-4 mt-2">
+              <div className="flex items-center"><span className="font-bold mr-2">L.R No. :</span> <input type="text" className="border-b border-gray-400 outline-none w-20 uppercase" value={buyerDetails.lrNo} onChange={e => setBuyerDetails({...buyerDetails, lrNo: e.target.value})} /></div>
+              <div className="flex items-center"><span className="font-bold mr-2">L.R Date :</span> <input type="date" className="border-b border-gray-400 outline-none w-32" value={buyerDetails.lrDate} onChange={e => setBuyerDetails({...buyerDetails, lrDate: e.target.value})} /></div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* POS Items Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-lg">
-          <div className="bg-slate-950 px-4 py-3 border-b border-slate-800 flex justify-between items-center">
-            <h3 className="font-semibold text-white text-sm">Billing Items (Marg Style POS)</h3>
-            <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full">{cart.length} items</span>
+        {/* DYNAMIC ITEMS TABLE */}
+        <div className="min-h-[300px]">
+          <table className="w-full text-xs text-center border-collapse">
+            <thead className="border-b-2 border-black font-bold bg-gray-50">
+              <tr>
+                <th className="border-r border-black p-1 w-8">S.No.</th>
+                <th className="border-r border-black p-1 w-16">Item Code</th>
+                <th className="border-r border-black p-1 text-left">Description of Goods</th>
+                <th className="border-r border-black p-1 w-16">HSN/SAC</th>
+                <th className="border-r border-black p-1 w-12">Qty</th>
+                <th className="border-r border-black p-1 w-16">Rate</th>
+                <th className="border-r border-black p-1 w-20">Taxable Value</th>
+                <th className="border-r border-black p-1 w-12">DIS %</th>
+                <th className="border-r border-black p-1 w-16">DIS Amt</th>
+                <th className="border-r border-black p-1 w-12">GST %</th>
+                <th className="border-r border-black p-1 w-16">GST Amt</th>
+                <th className="p-1 w-24">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => {
+                const qty = Number(item.qty) || 0;
+                const rate = Number(item.rate) || 0;
+                const disP = Number(item.disPercent) || 0;
+                const gstP = Number(item.gstPercent) || 0;
+                const baseAmount = qty * rate;
+                const disAmt = baseAmount * (disP / 100);
+                const afterDis = baseAmount - disAmt;
+                const gstAmt = afterDis * (gstP / 100);
+                const totalAmount = afterDis + gstAmt;
+
+                return (
+                  <tr key={item.id} className="border-b border-gray-200 group hover:bg-blue-50/50">
+                    <td className="border-r border-black p-1 relative">
+                      {index + 1}
+                      {items.length > 1 && (
+                        <button onClick={() => removeRow(index)} className="absolute -left-6 top-1 text-red-500 opacity-0 group-hover:opacity-100 print:hidden">
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </td>
+                    <td className="border-r border-black p-1"><input type="text" className="w-full text-center outline-none bg-transparent" value={item.code} onChange={(e) => handleItemChange(index, 'code', e.target.value)} /></td>
+                    <td className="border-r border-black p-1"><input type="text" className="w-full text-left outline-none bg-transparent font-medium text-blue-600" placeholder="Type medicine name..." value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} /></td>
+                    <td className="border-r border-black p-1"><input type="text" className="w-full text-center outline-none bg-transparent" value={item.hsn} onChange={(e) => handleItemChange(index, 'hsn', e.target.value)} /></td>
+                    <td className="border-r border-black p-1"><input type="number" className="w-full text-center outline-none bg-transparent" value={item.qty || ''} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} /></td>
+                    <td className="border-r border-black p-1"><input type="number" className="w-full text-right outline-none bg-transparent" value={item.rate || ''} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} /></td>
+                    <td className="border-r border-black p-1 text-right">{baseAmount.toFixed(2)}</td>
+                    <td className="border-r border-black p-1"><input type="number" className="w-full text-center outline-none bg-transparent" value={item.disPercent || ''} onChange={(e) => handleItemChange(index, 'disPercent', e.target.value)} /></td>
+                    <td className="border-r border-black p-1 text-right">{disAmt.toFixed(2)}</td>
+                    <td className="border-r border-black p-1"><input type="number" className="w-full text-center outline-none bg-transparent" value={item.gstPercent || ''} onChange={(e) => handleItemChange(index, 'gstPercent', e.target.value)} /></td>
+                    <td className="border-r border-black p-1 text-right">{gstAmt.toFixed(2)}</td>
+                    <td className="p-1 text-right font-bold">{totalAmount.toFixed(2)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          
+          {/* Add Row Button (Hidden in Print) */}
+          <div className="p-2 print:hidden">
+            <button onClick={addRow} className="flex items-center text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+              <Plus size={16} className="mr-1" /> Add Row
+            </button>
           </div>
-          <div className="overflow-x-auto min-h-[300px]">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-950/80 text-slate-400 uppercase border-b border-slate-800 sticky top-0">
-                <tr>
-                  <th className="px-3 py-3">S.</th>
-                  <th className="px-3 py-3">Qty</th>
-                  <th className="px-3 py-3">Pack</th>
-                  <th className="px-3 py-3">Product</th>
-                  <th className="px-3 py-3">Batch</th>
-                  <th className="px-3 py-3">Exp</th>
-                  <th className="px-3 py-3">HSN</th>
-                  <th className="px-3 py-3">MRP</th>
-                  <th className="px-3 py-3">Rate</th>
-                  <th className="px-3 py-3">DIS</th>
-                  <th className="px-3 py-3">SGST</th>
-                  <th className="px-3 py-3">CGST</th>
-                  <th className="px-3 py-3 text-right">Amount</th>
-                  <th className="px-3 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {cart.length === 0 ? (
-                  <tr><td colSpan="14" className="text-center py-16 text-slate-500">Cart is empty. Search items above to add.</td></tr>
-                ) : (
-                  cart.map((item, idx) => {
-                    const itemNet = (item.qty * item.originalPrice) * (1 - discountPercent/100);
-                    const gstRate = Number(item.gst) || 12;
-                    return (
-                      <tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/40">
-                        <td className="px-3 py-3 text-slate-400">{idx + 1}</td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-5 h-5 rounded bg-slate-800 text-white flex items-center justify-center cursor-pointer hover:bg-slate-700">-</button>
-                            <span className="w-6 text-center font-bold text-white">{item.qty}</span>
-                            <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-5 h-5 rounded bg-slate-800 text-white flex items-center justify-center cursor-pointer hover:bg-slate-700">+</button>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3 text-slate-300">{item.pack || '10T'}</td>
-                        <td className="px-3 py-3 font-medium text-white">{item.name}</td>
-                        <td className="px-3 py-3 text-slate-300">{item.batch}</td>
-                        <td className="px-3 py-3 text-slate-300">{item.expiry}</td>
-                        <td className="px-3 py-3 text-slate-300">{item.hsn}</td>
-                        <td className="px-3 py-3 text-slate-300">₹{item.mrp}</td>
-                        <td className="px-3 py-3 text-slate-300">₹{item.originalPrice}</td>
-                        <td className="px-3 py-3 text-slate-300">{discountPercent}%</td>
-                        <td className="px-3 py-3 text-slate-300">{gstRate/2}%</td>
-                        <td className="px-3 py-3 text-slate-300">{gstRate/2}%</td>
-                        <td className="px-3 py-3 text-right font-medium text-teal-400">₹{itemNet.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-center">
-                          <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-300 cursor-pointer"><Trash2 size={16} /></button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+        </div>
+
+        {/* FOOTER SECTION */}
+        <div className="grid grid-cols-12 border-t-2 border-black text-sm">
+          
+          {/* Left Footer (Bank Details & Terms) */}
+          <div className="col-span-8 border-r-2 border-black flex flex-col justify-between">
+            <div className="p-2 border-b-2 border-black">
+              <div className="font-bold underline mb-1">Bank Details</div>
+              <div className="grid grid-cols-2 gap-x-4">
+                <div><span className="font-bold">Bank Name:</span> PUNJAB & SIND BANK</div>
+                <div><span className="font-bold">Bank Branch:</span> GEETA COLONY</div>
+                <div><span className="font-bold">Bank A/c No.:</span> 06261100054752</div>
+                <div><span className="font-bold">IFSC CODE:</span> PSIB0000626</div>
+              </div>
+            </div>
+            
+            <div className="p-2 border-b-2 border-black font-bold uppercase">
+              Rs. {/* Add Number to Words logic here if needed, keeping static for layout */} 
+              (Amount in words will appear here)
+            </div>
+
+            <div className="p-2 text-xs">
+              <div className="font-bold underline">Terms & conditions</div>
+              <ol className="list-decimal pl-4 mt-1">
+                <li>Goods once sold will not be taken back or exchanged.</li>
+                <li>Bills not paid due date will attract 24% interest.</li>
+                <li>All disputes subject to Jurisdiction only.</li>
+                <li>Prescribed Sales Tax declaration will be given.</li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Right Footer (Totals Calculation) */}
+          <div className="col-span-4 flex flex-col">
+            <div className="p-2 border-b-2 border-black font-bold">
+              <div className="flex justify-between"><span>Total Amount Before GST</span> <span>{totals.taxableValue.toFixed(2)}</span></div>
+              <div className="flex justify-between text-red-600"><span>DISCOUNT</span> <span>- {totals.discount.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Add : SGST</span> <span>+ {totals.sgst.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Add : CGST</span> <span>+ {totals.cgst.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Roundoff</span> <span>{totals.roundoff > 0 ? '+' : ''}{totals.roundoff.toFixed(2)}</span></div>
+            </div>
+            <div className="p-2 border-b-2 border-black bg-blue-50 font-bold text-lg text-blue-900 flex justify-between items-center">
+              <span>Total Amount After GST</span> 
+              <span>₹{totals.grandTotal.toFixed(2)}</span>
+            </div>
+            <div className="p-2 flex-grow flex flex-col items-end justify-end pt-12 pb-2 pr-4 relative">
+              <span className="absolute top-2 right-4 text-xs font-bold">For {storeSettings.storeName}</span>
+              <span className="font-bold border-t border-black pt-1 px-4">Authorised Signatory</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Right Section: Buyer Details & Totals */}
-      <div className="w-full lg:w-80 bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col shadow-lg">
-        <h3 className="font-semibold text-white border-b border-slate-800 pb-3 mb-4 text-sm">Buyer Details</h3>
-        <div className="space-y-3 mb-6">
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Party Name</label>
-            <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" value={customerName} onChange={e => setCustomerName(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Party GSTIN</label>
-            <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" value={customerGstin} onChange={e => setCustomerGstin(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-xs text-slate-400 block mb-1">Party Address</label>
-            <input className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-teal-500" value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} />
-          </div>
+      {/* ACTION BUTTONS (Hidden in Print) */}
+      <div className="max-w-5xl mx-auto mt-6 flex justify-between items-center print:hidden bg-white/5 backdrop-blur-md p-4 rounded-xl border border-slate-700">
+        <div className="flex gap-4">
+          <button onClick={handleSaveBill} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg">
+            <Save size={18} className="mr-2" /> Save Bill
+          </button>
+          <button onClick={() => window.print()} className="flex items-center bg-slate-700 hover:bg-slate-600 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg border border-slate-600">
+            <Printer size={18} className="mr-2" /> Print
+          </button>
         </div>
-
-        <h3 className="font-semibold text-white border-b border-slate-800 pb-3 mb-4 text-sm">Invoice Totals</h3>
-        <div className="space-y-3 mb-6 text-sm">
-          <div className="flex justify-between text-slate-300">
-            <span>Subtotal</span>
-            <span>₹{subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between items-center text-slate-300">
-            <span>Discount (%)</span>
-            <input 
-              type="number" 
-              className="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-right text-white focus:outline-none focus:border-teal-500" 
-              value={discountPercent} 
-              onChange={e => setDiscountPercent(Number(e.target.value))}
-              min="0" max="100"
-            />
-          </div>
-          <div className="flex justify-between text-slate-400 text-xs">
-            <span>SGST / CGST</span>
-            <span>₹{totalSgst.toFixed(2)} / ₹{totalCgst.toFixed(2)}</span>
-          </div>
-          <div className="border-t border-slate-800 pt-3 flex justify-between font-bold text-lg text-white">
-            <span>Grand Total</span>
-            <span className="text-teal-400">₹{finalTotal.toFixed(2)}</span>
-          </div>
+        
+        <div className="flex gap-4">
+          <button onClick={() => window.print()} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-lg">
+            <Download size={18} className="mr-2" /> Download PDF
+          </button>
+          <button onClick={() => showToast('Share link copied to clipboard!')} className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-lg">
+            <Share2 size={18} className="mr-2" /> Share
+          </button>
         </div>
-
-        <button 
-          className="w-full py-3 font-bold bg-gradient-to-r from-teal-500 to-green-500 text-white rounded-lg shadow-md hover:from-teal-600 hover:to-green-600 transition-all cursor-pointer disabled:opacity-50 text-sm mt-auto" 
-          onClick={handleGenerateBill} 
-          disabled={cart.length === 0 || isProcessing}
-        >
-          {isProcessing ? 'Generating...' : 'Save & Generate Bill'}
-        </button>
       </div>
-
-      {/* Invoice Modal Preview */}
-      {activeInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl relative">
-            <button onClick={() => setActiveInvoice(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-lg cursor-pointer">✕</button>
-            <h2 className="text-xl font-bold text-white mb-4">Generated Invoice Preview</h2>
-            {renderMargInvoice(activeInvoice, handlePrint, handleShareWhatsApp)}
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 }
