@@ -3,7 +3,7 @@ import {
   Menu, X, Home, CreditCard, Package, Users, Truck, FileText, 
   Settings, LogOut, Plus, Edit, Trash2, Search, Printer, 
   Download, Activity, CheckCircle, AlertTriangle, Shield, 
-  Database, Check, ChevronRight, TrendingUp, Share2 
+  Database, Check, ChevronRight, TrendingUp, Share2, Upload 
 } from 'lucide-react';
 
 import { auth, db } from './firebase';
@@ -83,6 +83,14 @@ const Toast = ({ message, type = 'success', onClose }) => {
   );
 };
 
+// --- FOOTER COMPONENT ---
+const Footer = () => (
+  <footer className="bg-slate-950 border-t border-slate-900 py-8 text-center text-sm text-slate-400 space-y-2 mt-auto">
+    <p>© 2026 CCU Studios MEDIVEU ERP. All rights reserved.</p>
+    <p>Need support or help with payments/subscriptions? Contact us at <a href="mailto:saifyt915@gmail.com" className="text-teal-400 hover:underline">saifyt915@gmail.com</a></p>
+  </footer>
+);
+
 // --- MAIN APP COMPONENT ---
 
 export default function App() {
@@ -100,12 +108,19 @@ export default function App() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
+  // Handle direct secret admin route check on initial load
+  useEffect(() => {
+    if (window.location.pathname === '/admin' || window.location.hash === '#admin') {
+      setCurrentView('admin');
+    }
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => { if (authLoading) setAuthLoading(false); }, 3000);
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       clearTimeout(timer);
       setUser(currentUser);
-      if (currentUser) {
+      if (currentUser && currentView !== 'admin') {
         setCurrentView('tenant');
         setCurrentPath('dashboard');
       }
@@ -159,7 +174,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30 flex flex-col justify-between">
       {currentView === 'public' && <PublicWebsite navigate={navigate} showToast={showToast} />}
       {currentView === 'tenant' && (
         <TenantDashboard 
@@ -185,11 +200,10 @@ function PublicWebsite({ navigate, showToast }) {
     switch (activeTab) {
       case 'home': return <HomeView setActiveTab={setActiveTab} />;
       case 'features': return <FeaturesView />;
-      case 'pricing': return <PricingView />;
+      case 'pricing': return <PricingView setActiveTab={setActiveTab} showToast={showToast} />;
       case 'contact': return <ContactView />;
       case 'login': return <LoginView navigate={navigate} showToast={showToast} setActiveTab={setActiveTab} />;
       case 'register': return <RegisterView navigate={navigate} showToast={showToast} setActiveTab={setActiveTab} />;
-      case 'admin-login': return <AdminLoginView navigate={navigate} />;
       default: return <HomeView setActiveTab={setActiveTab} />;
     }
   };
@@ -210,13 +224,13 @@ function PublicWebsite({ navigate, showToast }) {
                 {tab}
               </button>
             ))}
-            <button onClick={() => setActiveTab('admin-login')} className="text-xs text-red-400 hover:underline cursor-pointer">Admin Login</button>
             <button onClick={() => setActiveTab('login')} className="text-sm font-medium text-slate-300 hover:text-white cursor-pointer">Login</button>
             <Button onClick={() => setActiveTab('register')}>Start Free Trial</Button>
           </div>
         </div>
       </nav>
       <main className="flex-grow">{renderContent()}</main>
+      <Footer />
     </div>
   );
 }
@@ -227,29 +241,81 @@ const HomeView = ({ setActiveTab }) => (
       Smart Wholesale Billing & ERP for <span className="text-teal-400">Medical Stores</span>
     </h1>
     <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10">
-      Manage inventory with batch & expiry tracking, generate professional GST invoices, and grow your pharma business.
+      Manage inventory with batch & expiry tracking, generate professional GST invoices, and grow your pharma business securely.
     </p>
     <div className="flex justify-center gap-4">
-      <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg">Create Account / Free Trial</Button>
+      <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg">Create Account / 7 Days Free Trial</Button>
     </div>
   </div>
 );
 
 const FeaturesView = () => (
-  <div className="max-w-7xl mx-auto px-4 py-24 text-center text-white">
-    <h2 className="text-3xl font-bold mb-6">Complete Wholesale Pharma Features</h2>
+  <div className="max-w-7xl mx-auto px-4 py-24 text-center text-white space-y-6">
+    <h2 className="text-3xl font-bold">Complete Wholesale Pharma Features</h2>
+    <p className="text-slate-400 max-w-2xl mx-auto">Multi-tenant secure architecture, lightning-fast POS billing, batch-wise inventory tracking, and complete customer history reports.</p>
   </div>
 );
 
-const PricingView = () => (
-  <div className="max-w-4xl mx-auto px-4 py-24 text-center text-white">
-    <h2 className="text-3xl font-bold mb-6">Transparent Pricing</h2>
-  </div>
-);
+const PricingView = ({ setActiveTab, showToast }) => {
+  const handleRazorpayCheckout = (planName, amount) => {
+    // Razorpay integration hook placeholder
+    showToast(`Redirecting to Razorpay secure checkout for ${planName} (₹${amount})...`);
+    setTimeout(() => {
+      setActiveTab('register');
+    }, 1500);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-20 text-white">
+      <div className="text-center mb-16">
+        <h2 className="text-4xl font-extrabold mb-4">Simple & Transparent Pricing</h2>
+        <p className="text-slate-400">Choose the best plan for your medical store wholesale business.</p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Free Trial Card */}
+        <Card className="border-teal-500/50 flex flex-col justify-between">
+          <div>
+            <div className="text-teal-400 font-semibold mb-2">STARTER</div>
+            <h3 className="text-2xl font-bold mb-4">7 Days Free Trial</h3>
+            <div className="text-4xl font-black mb-6">₹0 <span className="text-sm font-normal text-slate-400">/ 7 days</span></div>
+            <p className="text-slate-400 text-sm mb-6">Test all professional features with no restrictions.</p>
+          </div>
+          <Button onClick={() => setActiveTab('register')} className="w-full">Start Free Trial</Button>
+        </Card>
+
+        {/* Monthly Plan */}
+        <Card className="border-blue-500/50 flex flex-col justify-between bg-slate-800/80">
+          <div>
+            <div className="text-blue-400 font-semibold mb-2">MONTHLY PROFESSIONAL</div>
+            <h3 className="text-2xl font-bold mb-4">Monthly Plan</h3>
+            <div className="text-4xl font-black mb-6">₹249 <span className="text-sm font-normal text-slate-400">/ month</span></div>
+            <p className="text-slate-400 text-sm mb-6">Billed monthly via Razorpay. Full ERP access with updates.</p>
+          </div>
+          <Button onClick={() => handleRazorpayCheckout('Monthly Plan', 249)} className="w-full bg-blue-600 hover:bg-blue-700">Pay ₹249 via Razorpay</Button>
+        </Card>
+
+        {/* Yearly Plan */}
+        <Card className="border-green-500/50 flex flex-col justify-between">
+          <div>
+            <div className="text-green-400 font-semibold mb-2">BEST VALUE (SAVE MORE)</div>
+            <h3 className="text-2xl font-bold mb-4">Yearly Plan</h3>
+            <div className="text-4xl font-black mb-6">₹2,799 <span className="text-sm font-normal text-slate-400">/ year</span></div>
+            <p className="text-slate-400 text-sm mb-6">Billed annually via Razorpay. Dedicated priority support.</p>
+          </div>
+          <Button onClick={() => handleRazorpayCheckout('Yearly Plan', 2799)} className="w-full bg-green-600 hover:bg-green-700">Pay ₹2,799 via Razorpay</Button>
+        </Card>
+      </div>
+    </div>
+  );
+};
 
 const ContactView = () => (
-  <div className="max-w-xl mx-auto py-24 px-4 text-white">
-    <h2 className="text-3xl font-bold mb-6">Contact Us</h2>
+  <div className="max-w-xl mx-auto py-24 px-4 text-white text-center space-y-4">
+    <h2 className="text-3xl font-bold mb-4">Contact Support</h2>
+    <p className="text-slate-400">If you face any issues with your subscription, billing, or software setup, reach out to us directly:</p>
+    <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-teal-400 font-semibold">
+      saifyt915@gmail.com
+    </div>
   </div>
 );
 
@@ -279,26 +345,21 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
     <div className="max-w-md mx-auto py-20 px-4">
       <Card>
         <h2 className="text-2xl font-bold text-white mb-4 text-center">Create Store Account</h2>
-        <form onSubmit={async e => { e.preventDefault(); try { const res = await createUserWithEmailAndPassword(auth, email, password); await setDoc(doc(db, 'users', res.user.uid, 'settings', 'general'), { storeName: storeName || 'Pharma Wholesale' }); showToast('Created!'); navigate('tenant', 'dashboard'); } catch(err){ showToast('Failed', 'error'); } }} className="space-y-4">
+        <form onSubmit={async e => { 
+          e.preventDefault(); 
+          try { 
+            const res = await createUserWithEmailAndPassword(auth, email, password); 
+            await setDoc(doc(db, 'users', res.user.uid, 'settings', 'general'), { storeName: storeName || 'Pharma Wholesale', plan: '7 Days Free Trial' }); 
+            showToast('Account Created Successfully!'); 
+            navigate('tenant', 'dashboard'); 
+          } catch(err){ 
+            showToast('Registration Failed', 'error'); 
+          } 
+        }} className="space-y-4">
           <Input label="Store Name" value={storeName} onChange={e => setStoreName(e.target.value)} required />
           <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-          <Input label="Password" type="password" value={password} className="text-white" value={password} onChange={e => setPassword(e.target.value)} required />
-          <Button type="submit" className="w-full">Register</Button>
-        </form>
-      </Card>
-    </div>
-  );
-};
-
-const AdminLoginView = ({ navigate }) => {
-  const [pwd, setPwd] = useState('');
-  return (
-    <div className="max-w-md mx-auto py-24 px-4">
-      <Card className="border-red-500/30">
-        <h2 className="text-2xl font-bold text-white mb-4 text-center text-red-500">Super Admin</h2>
-        <form onSubmit={e => { e.preventDefault(); if(pwd === 'admin123') navigate('admin', 'dashboard'); else alert('Wrong password (admin123)'); }} className="space-y-4">
-          <Input label="Password" type="password" value={pwd} onChange={e => setPwd(e.target.value)} required />
-          <Button type="submit" className="w-full bg-red-600">Access Admin</Button>
+          <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+          <Button type="submit" className="w-full">Register & Start Trial</Button>
         </form>
       </Card>
     </div>
@@ -315,7 +376,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
     { id: 'medicines', label: 'Inventory', icon: <Package size={20} /> },
     { id: 'customers', label: 'Customers', icon: <Users size={20} /> },
     { id: 'reports', label: 'Reports', icon: <FileText size={20} /> },
-    { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
+    { id: 'settings', label: 'Settings & Backup', icon: <Settings size={20} /> },
   ];
 
   const renderContent = () => {
@@ -347,7 +408,10 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
           </button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto p-6 bg-slate-950">{renderContent()}</main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto p-6 bg-slate-950">{renderContent()}</main>
+        <Footer />
+      </div>
     </div>
   );
 }
@@ -428,10 +492,10 @@ function TenantReportsView({ data }) {
 function TenantSettingsView({ data, showToast, user }) {
   const [formData, setFormData] = useState({
     storeName: data.settings?.general?.storeName || 'PHARMA WHOLESALE',
-    address: data.settings?.general?.address || '13-2-47, OPP GOWDIPAMATAM, BACHELI',
-    phone: data.settings?.general?.phone || '9999955559',
-    gstin: data.settings?.general?.gstin || '07CTMPM699K1ZJ',
-    dlNumber: data.settings?.general?.dlNumber || 'DL11WW-6985'
+    address: data.settings?.general?.address || '',
+    phone: data.settings?.general?.phone || '',
+    gstin: data.settings?.general?.gstin || '',
+    dlNumber: data.settings?.general?.dlNumber || ''
   });
 
   const handleSave = async (e) => {
@@ -446,9 +510,29 @@ function TenantSettingsView({ data, showToast, user }) {
     }
   };
 
+  // Backup & Export Data Feature for User
+  const handleExportBackup = () => {
+    const backupData = {
+      settings: data.settings,
+      medicines: data.medicines,
+      bills: data.bills,
+      customers: data.customers,
+      suppliers: data.suppliers,
+      exportDate: new Date().toISOString()
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `mediveu_erp_backup_${user.uid.slice(0,6)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    showToast('Backup exported successfully!');
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-white">Store Settings</h1>
+      <h1 className="text-2xl font-bold text-white">Store Settings & Backup</h1>
       <Card>
         <form onSubmit={handleSave} className="space-y-4">
           <Input label="Store Name" value={formData.storeName} onChange={e => setFormData({...formData, storeName: e.target.value})} required />
@@ -459,7 +543,15 @@ function TenantSettingsView({ data, showToast, user }) {
           <div className="flex justify-end pt-4"><Button type="submit">Save Settings</Button></div>
         </form>
       </Card>
+
+      {/* User Backup & Export Section */}
+      <Card className="border-teal-500/30">
+        <h3 className="text-xl font-bold text-white mb-2">Data Backup & Export</h3>
+        <p className="text-slate-400 text-sm mb-4">Download a complete JSON backup of your store inventory, bills, customers, and settings for safe keeping.</p>
+        <Button onClick={handleExportBackup} variant="secondary" className="gap-2">
+          <Download size={18} /> Download Store Backup (.json)
+        </Button>
+      </Card>
     </div>
   );
 }
-
