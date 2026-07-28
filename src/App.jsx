@@ -13,6 +13,7 @@ import { collection, doc, setDoc, getDocs, onSnapshot, deleteDoc, updateDoc, add
 // Biling code alag component se hi aayega, jaisa aapne set kiya tha
 import BillingPOS from './components/BillingPOS';
 import AdminPanel from './components/AdminPanel';
+import Reports from './components/Reports'; // 🔥 Naya Reports Component Import Kiya
 
 // --- UTILITY COMPONENTS ---
 
@@ -425,7 +426,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
       case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} />;
       case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
       case 'customers': return <TenantCustomersView data={data} />;
-      case 'reports': return <TenantReportsView data={data} />;
+      case 'reports': return <Reports data={data} />; // 🔥 UPDATE: Yahan direct nayi file link kar di
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
       default: return <TenantDashboardView data={data} />;
     }
@@ -456,9 +457,16 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
   );
 }
 
+// 🔥 UPDATE: Dashboard mein NaN issue fix kar diya
 function TenantDashboardView({ data }) {
   const { medicines, bills } = data;
-  const totalSales = bills.reduce((acc, b) => acc + (Number(b.total) || 0), 0);
+  
+  // Naye aur purane bill dono ka amount theek se pakdega
+  const totalSales = bills.reduce((acc, b) => {
+    const amount = b.totals?.grandTotal || b.total || 0;
+    return acc + Number(amount);
+  }, 0);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
@@ -512,19 +520,6 @@ function TenantCustomersView({ data }) {
           </tbody>
         </table>
       </Card>
-    </div>
-  );
-}
-
-function TenantReportsView({ data }) {
-  const totalSales = data.bills.reduce((sum, b) => sum + Number(b.total), 0);
-  return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-white">Financial Reports</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-t-4 border-t-teal-500"><h3 className="text-slate-400 text-sm">Total Revenue</h3><div className="text-3xl font-bold text-white mt-2">₹{totalSales.toFixed(2)}</div></Card>
-        <Card className="border-t-4 border-t-blue-500"><h3 className="text-slate-400 text-sm">Total Invoices</h3><div className="text-3xl font-bold text-white mt-2">{data.bills.length}</div></Card>
-      </div>
     </div>
   );
 }
