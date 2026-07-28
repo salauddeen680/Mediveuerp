@@ -198,13 +198,13 @@ function PublicWebsite({ navigate, showToast }) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'home': return <HomeView setActiveTab={setActiveTab} />;
+      case 'home': return <HomeView setActiveTab={setActiveTab} showToast={showToast} />;
       case 'features': return <FeaturesView />;
       case 'pricing': return <PricingView setActiveTab={setActiveTab} showToast={showToast} />;
       case 'contact': return <ContactView />;
       case 'login': return <LoginView navigate={navigate} showToast={showToast} setActiveTab={setActiveTab} />;
       case 'register': return <RegisterView navigate={navigate} showToast={showToast} setActiveTab={setActiveTab} />;
-      default: return <HomeView setActiveTab={setActiveTab} />;
+      default: return <HomeView setActiveTab={setActiveTab} showToast={showToast} />;
     }
   };
 
@@ -235,22 +235,28 @@ function PublicWebsite({ navigate, showToast }) {
   );
 }
 
-const HomeView = ({ setActiveTab }) => (
-  <div className="max-w-7xl mx-auto px-4 pt-24 pb-32 text-center">
-    <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-8">
-      Smart Wholesale Billing & ERP for <span className="text-teal-400">Medical Stores</span>
-    </h1>
-    <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10">
-      Manage inventory with batch & expiry tracking, generate professional GST invoices, and grow your pharma business securely.
-    </p>
-    <div className="flex justify-center gap-4">
-      <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg">Create Account / 7 Days Free Trial</Button>
+// 🔥 FIX: Ab Homepage par Features aur Pricing ek sath dikhenge, niche khali nahi rahega!
+const HomeView = ({ setActiveTab, showToast }) => (
+  <>
+    <div className="max-w-7xl mx-auto px-4 pt-24 pb-20 text-center">
+      <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-8">
+        Smart Wholesale Billing & ERP for <span className="text-teal-400">Medical Stores</span>
+      </h1>
+      <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10">
+        Manage inventory with batch & expiry tracking, generate professional GST invoices, and grow your pharma business securely.
+      </p>
+      <div className="flex justify-center gap-4">
+        <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg">Create Account / 7 Days Free Trial</Button>
+      </div>
     </div>
-  </div>
+    
+    <FeaturesView />
+    <PricingView setActiveTab={setActiveTab} showToast={showToast} />
+  </>
 );
 
 const FeaturesView = () => (
-  <div className="max-w-7xl mx-auto px-4 py-24 text-center text-white space-y-6">
+  <div className="max-w-7xl mx-auto px-4 py-20 text-center text-white space-y-6">
     <h2 className="text-3xl font-bold">Complete Wholesale Pharma Features</h2>
     <p className="text-slate-400 max-w-2xl mx-auto">Multi-tenant secure architecture, lightning-fast POS billing, batch-wise inventory tracking, and complete customer history reports.</p>
   </div>
@@ -337,10 +343,12 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
   );
 };
 
+// 🔥 FIX: Aapka diya hua RegisterView Code yahan add kiya hai taaki Admin panel mein "0 Stores" ki problem theek ho jaye
 const RegisterView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [storeName, setStoreName] = useState('');
+  
   return (
     <div className="max-w-md mx-auto py-20 px-4">
       <Card>
@@ -349,7 +357,24 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
           e.preventDefault(); 
           try { 
             const res = await createUserWithEmailAndPassword(auth, email, password); 
-            await setDoc(doc(db, 'users', res.user.uid, 'settings', 'general'), { storeName: storeName || 'Pharma Wholesale', plan: '7 Days Free Trial' }); 
+            
+            // 1. MAIN DOCUMENT BANANA (Taki Admin mein 0 na dikhe)
+            await setDoc(doc(db, 'users', res.user.uid), {
+              email: email,
+              status: 'Active',
+              plan: '7 Days Free Trial',
+              createdAt: Date.now()
+            });
+
+            // 2. SETTINGS SUB-COLLECTION BANANA
+            await setDoc(doc(db, 'users', res.user.uid, 'settings', 'general'), { 
+              storeName: storeName || 'Pharma Wholesale', 
+              phone: '',
+              address: '',
+              gstin: '',
+              dlNumber: ''
+            }); 
+            
             showToast('Account Created Successfully!'); 
             navigate('tenant', 'dashboard'); 
           } catch(err){ 
