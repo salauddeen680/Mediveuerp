@@ -118,21 +118,52 @@ export default function BillingPOS({ data, user, showToast }) {
         createdAt: serverTimestamp()
       });
       showToast('Invoice Saved Successfully!');
-      window.print(); // Auto trigger print
+      setTimeout(() => {
+        window.print(); // Auto trigger print after saving
+      }, 500);
     } catch (error) {
       showToast('Error saving invoice', 'error');
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 p-4 md:p-8 overflow-y-auto font-sans">
+    <div className="min-h-screen bg-slate-900 p-4 md:p-8 overflow-y-auto font-sans relative">
       
+      {/* 🔥 FIX: Yahan Print CSS add ki gayi hai jo sidebar aur footer ko print mein hide kar degi 🔥 */}
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 10mm; }
+          body * {
+            visibility: hidden;
+          }
+          #printable-invoice, #printable-invoice * {
+            visibility: visible;
+          }
+          #printable-invoice {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+          }
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background-color: white !important;
+          }
+          .print-hidden {
+            display: none !important;
+          }
+        }
+      `}</style>
+
       {/* INVOICE PAPER (A4 Style) */}
       <div className="max-w-5xl mx-auto bg-white text-black shadow-2xl rounded-sm overflow-hidden" id="printable-invoice">
         
         {/* HEADER SECTION */}
         <div className="border-b-2 border-black p-4 text-center relative">
-          <div className="absolute right-4 top-4 text-xs font-bold text-gray-500">Original for Buyer</div>
+          <div className="absolute right-4 top-4 text-xs font-bold text-gray-500 print-hidden">Original for Buyer</div>
           <h1 className="text-3xl font-extrabold uppercase tracking-wide">{storeSettings.storeName}</h1>
           <p className="text-sm font-medium mt-1 uppercase">{storeSettings.address}</p>
           <p className="text-sm font-medium">Phone : {storeSettings.phone}</p>
@@ -142,14 +173,14 @@ export default function BillingPOS({ data, user, showToast }) {
         <div className="grid grid-cols-2 border-b-2 border-black text-sm">
           <div className="p-2 border-r-2 border-black flex flex-col gap-1">
             <div className="flex"><span className="w-32 font-bold">GSTIN :</span> <span>{storeSettings.gstin}</span></div>
-            <div className="flex items-center"><span className="w-32 font-bold">Invoice Number :</span> <input type="text" className="border-b border-gray-400 outline-none w-32" value={invoiceDetails.invoiceNumber} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceNumber: e.target.value})} /></div>
-            <div className="flex items-center"><span className="w-32 font-bold">Invoice Date :</span> <input type="date" className="border-b border-gray-400 outline-none w-32" value={invoiceDetails.invoiceDate} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceDate: e.target.value})} /></div>
+            <div className="flex items-center"><span className="w-32 font-bold">Invoice Number :</span> <input type="text" className="border-b border-gray-400 outline-none w-32 bg-transparent" value={invoiceDetails.invoiceNumber} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceNumber: e.target.value})} /></div>
+            <div className="flex items-center"><span className="w-32 font-bold">Invoice Date :</span> <input type="date" className="border-b border-gray-400 outline-none w-32 bg-transparent" value={invoiceDetails.invoiceDate} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceDate: e.target.value})} /></div>
             <div className="flex"><span className="w-32 font-bold">State :</span> <span>{invoiceDetails.stateCode}</span></div>
           </div>
           <div className="p-2 flex flex-col gap-1">
-            <div className="flex"><span className="w-32 font-bold">PAN NO. :</span> <input type="text" className="border-b border-gray-400 outline-none w-40 uppercase" value={invoiceDetails.panNo} onChange={e => setInvoiceDetails({...invoiceDetails, panNo: e.target.value})} /></div>
+            <div className="flex"><span className="w-32 font-bold">PAN NO. :</span> <input type="text" className="border-b border-gray-400 outline-none w-40 uppercase bg-transparent" value={invoiceDetails.panNo} onChange={e => setInvoiceDetails({...invoiceDetails, panNo: e.target.value})} /></div>
             <div className="font-bold mt-1 underline">SHIPPED TO PARTY:</div>
-            <div className="flex items-center"><span className="w-32 font-bold">GSTIN :</span> <input type="text" className="border-b border-gray-400 outline-none w-40 uppercase" value={invoiceDetails.shippedGstin} onChange={e => setInvoiceDetails({...invoiceDetails, shippedGstin: e.target.value})} /></div>
+            <div className="flex items-center"><span className="w-32 font-bold">GSTIN :</span> <input type="text" className="border-b border-gray-400 outline-none w-40 uppercase bg-transparent" value={invoiceDetails.shippedGstin} onChange={e => setInvoiceDetails({...invoiceDetails, shippedGstin: e.target.value})} /></div>
             <div className="flex"><span className="w-32 font-bold">D.L. No :</span> <span>{storeSettings.dlNumber}</span></div>
           </div>
         </div>
@@ -158,18 +189,18 @@ export default function BillingPOS({ data, user, showToast }) {
         <div className="grid grid-cols-2 border-b-2 border-black text-sm">
           <div className="p-2 border-r-2 border-black">
             <div className="font-bold underline mb-1">Detail Of Receiver (Billed to)</div>
-            <div className="flex"><span className="w-20 font-bold">Name :</span> <input type="text" className="font-bold w-full outline-none uppercase" value={buyerDetails.name} onChange={e => setBuyerDetails({...buyerDetails, name: e.target.value})} /></div>
-            <div className="flex mt-1"><span className="w-20 font-bold">Add. :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.address} onChange={e => setBuyerDetails({...buyerDetails, address: e.target.value})} /></div>
-            <div className="flex mt-1"><span className="w-20 font-bold">GSTIN :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.gstin} onChange={e => setBuyerDetails({...buyerDetails, gstin: e.target.value})} /></div>
-            <div className="flex mt-1"><span className="w-20 font-bold">State :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.state} onChange={e => setBuyerDetails({...buyerDetails, state: e.target.value})} /></div>
+            <div className="flex"><span className="w-20 font-bold">Name :</span> <input type="text" className="font-bold w-full outline-none uppercase bg-transparent" value={buyerDetails.name} onChange={e => setBuyerDetails({...buyerDetails, name: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-20 font-bold">Add. :</span> <input type="text" className="w-full outline-none uppercase bg-transparent" value={buyerDetails.address} onChange={e => setBuyerDetails({...buyerDetails, address: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-20 font-bold">GSTIN :</span> <input type="text" className="w-full outline-none uppercase bg-transparent" value={buyerDetails.gstin} onChange={e => setBuyerDetails({...buyerDetails, gstin: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-20 font-bold">State :</span> <input type="text" className="w-full outline-none uppercase bg-transparent" value={buyerDetails.state} onChange={e => setBuyerDetails({...buyerDetails, state: e.target.value})} /></div>
           </div>
           <div className="p-2">
             <div className="font-bold underline mb-1">TRANSPORTATION</div>
-            <div className="flex"><span className="w-24 font-bold">Party :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.transportParty} onChange={e => setBuyerDetails({...buyerDetails, transportParty: e.target.value})} /></div>
-            <div className="flex mt-1"><span className="w-24 font-bold">GSTIN :</span> <input type="text" className="w-full outline-none uppercase" value={buyerDetails.transportGstin} onChange={e => setBuyerDetails({...buyerDetails, transportGstin: e.target.value})} /></div>
+            <div className="flex"><span className="w-24 font-bold">Party :</span> <input type="text" className="w-full outline-none uppercase bg-transparent" value={buyerDetails.transportParty} onChange={e => setBuyerDetails({...buyerDetails, transportParty: e.target.value})} /></div>
+            <div className="flex mt-1"><span className="w-24 font-bold">GSTIN :</span> <input type="text" className="w-full outline-none uppercase bg-transparent" value={buyerDetails.transportGstin} onChange={e => setBuyerDetails({...buyerDetails, transportGstin: e.target.value})} /></div>
             <div className="flex gap-4 mt-2">
-              <div className="flex items-center"><span className="font-bold mr-2">L.R No. :</span> <input type="text" className="border-b border-gray-400 outline-none w-20 uppercase" value={buyerDetails.lrNo} onChange={e => setBuyerDetails({...buyerDetails, lrNo: e.target.value})} /></div>
-              <div className="flex items-center"><span className="font-bold mr-2">L.R Date :</span> <input type="date" className="border-b border-gray-400 outline-none w-32" value={buyerDetails.lrDate} onChange={e => setBuyerDetails({...buyerDetails, lrDate: e.target.value})} /></div>
+              <div className="flex items-center"><span className="font-bold mr-2">L.R No. :</span> <input type="text" className="border-b border-gray-400 outline-none w-20 uppercase bg-transparent" value={buyerDetails.lrNo} onChange={e => setBuyerDetails({...buyerDetails, lrNo: e.target.value})} /></div>
+              <div className="flex items-center"><span className="font-bold mr-2">L.R Date :</span> <input type="date" className="border-b border-gray-400 outline-none w-32 bg-transparent" value={buyerDetails.lrDate} onChange={e => setBuyerDetails({...buyerDetails, lrDate: e.target.value})} /></div>
             </div>
           </div>
         </div>
@@ -210,7 +241,7 @@ export default function BillingPOS({ data, user, showToast }) {
                     <td className="border-r border-black p-1 relative">
                       {index + 1}
                       {items.length > 1 && (
-                        <button onClick={() => removeRow(index)} className="absolute -left-6 top-1 text-red-500 opacity-0 group-hover:opacity-100 print:hidden">
+                        <button onClick={() => removeRow(index)} className="absolute -left-6 top-1 text-red-500 opacity-0 group-hover:opacity-100 print-hidden cursor-pointer">
                           <Trash2 size={14} />
                         </button>
                       )}
@@ -233,8 +264,8 @@ export default function BillingPOS({ data, user, showToast }) {
           </table>
           
           {/* Add Row Button (Hidden in Print) */}
-          <div className="p-2 print:hidden">
-            <button onClick={addRow} className="flex items-center text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
+          <div className="p-2 print-hidden">
+            <button onClick={addRow} className="flex items-center text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors cursor-pointer">
               <Plus size={16} className="mr-1" /> Add Row
             </button>
           </div>
@@ -256,8 +287,7 @@ export default function BillingPOS({ data, user, showToast }) {
             </div>
             
             <div className="p-2 border-b-2 border-black font-bold uppercase">
-              Rs. {/* Add Number to Words logic here if needed, keeping static for layout */} 
-              (Amount in words will appear here)
+              Rs. (Amount in words will appear here)
             </div>
 
             <div className="p-2 text-xs">
@@ -293,21 +323,21 @@ export default function BillingPOS({ data, user, showToast }) {
       </div>
 
       {/* ACTION BUTTONS (Hidden in Print) */}
-      <div className="max-w-5xl mx-auto mt-6 flex justify-between items-center print:hidden bg-white/5 backdrop-blur-md p-4 rounded-xl border border-slate-700">
+      <div className="max-w-5xl mx-auto mt-6 flex justify-between items-center print-hidden bg-white/5 backdrop-blur-md p-4 rounded-xl border border-slate-700">
         <div className="flex gap-4">
-          <button onClick={handleSaveBill} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg">
+          <button onClick={handleSaveBill} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg cursor-pointer">
             <Save size={18} className="mr-2" /> Save Bill
           </button>
-          <button onClick={() => window.print()} className="flex items-center bg-slate-700 hover:bg-slate-600 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg border border-slate-600">
+          <button onClick={() => window.print()} className="flex items-center bg-slate-700 hover:bg-slate-600 text-white px-6 py-2.5 rounded-lg font-bold transition-all shadow-lg border border-slate-600 cursor-pointer">
             <Printer size={18} className="mr-2" /> Print
           </button>
         </div>
         
         <div className="flex gap-4">
-          <button onClick={() => window.print()} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-lg">
+          <button onClick={() => window.print()} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-lg cursor-pointer">
             <Download size={18} className="mr-2" /> Download PDF
           </button>
-          <button onClick={() => showToast('Share link copied to clipboard!')} className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-lg">
+          <button onClick={() => showToast('Share link copied to clipboard!')} className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-lg font-bold transition-all shadow-lg cursor-pointer">
             <Share2 size={18} className="mr-2" /> Share
           </button>
         </div>
