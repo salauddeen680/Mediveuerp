@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, CreditCard, Activity, LogOut, CheckCircle, AlertTriangle, Search, Lock, Unlock, RefreshCw } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 
 export default function AdminPanel({ navigate }) {
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [globalUserLimit, setGlobalUserLimit] = useState(50); // Max allowed stores configuration
+  const [globalUserLimit, setGlobalUserLimit] = useState(50);
   const [actionLoading, setActionLoading] = useState(null);
 
   useEffect(() => {
@@ -25,7 +25,8 @@ export default function AdminPanel({ navigate }) {
         const settingsSnap = await getDocs(collection(db, 'users', userId, 'settings'));
         let storeName = 'Unknown Store';
         let storePhone = 'N/A';
-        let status = userDoc.data().status || 'Active'; // Default Active
+        let status = userDoc.data().status || 'Active';
+        let plan = userDoc.data().plan || 'Monthly (₹249)'; // Default plan
         
         settingsSnap.forEach(sDoc => {
           if (sDoc.id === 'general') {
@@ -40,7 +41,7 @@ export default function AdminPanel({ navigate }) {
           storeName,
           phone: storePhone,
           status: status,
-          plan: userDoc.data().plan || 'Monthly (₹249)',
+          plan: plan, // e.g., 'Monthly (₹249)' or 'Yearly (₹2999)'
           createdAt: userDoc.data().createdAt || Date.now()
         });
       }
@@ -53,15 +54,12 @@ export default function AdminPanel({ navigate }) {
     }
   };
 
-  // Toggle store active / suspended status
   const toggleTenantStatus = async (tenantId, currentStatus) => {
     const newStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
     try {
       setActionLoading(tenantId);
       const userRef = doc(db, 'users', tenantId);
       await updateDoc(userRef, { status: newStatus });
-      
-      // Update local state
       setTenants(tenants.map(t => t.id === tenantId ? { ...t, status: newStatus } : t));
     } catch (error) {
       console.error("Error updating status:", error);
@@ -76,9 +74,12 @@ export default function AdminPanel({ navigate }) {
     t.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const activeStoresCount = tenants.filter(t => t.status === 'Active').length;
-  const suspendedStoresCount = tenants.filter(t => t.status === 'Suspended').length;
-  const totalRevenue = activeStoresCount * 249;
+  const activeStores = tenants.filter(t => t.status === 'Active');
+  const monthlyCount = activeStores.filter(t => t.plan.includes('249') || t.plan.toLowerCase().includes('monthly')).length;
+  const yearlyCount = activeStores.filter(t => t.plan.includes('2999') || t.plan.toLowerCase().includes('yearly')).length;
+  
+  // Total Revenue Calculation based on plans
+  const totalRevenue = (monthlyCount * 249) + (yearlyCount * 2999);
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
@@ -108,7 +109,7 @@ export default function AdminPanel({ navigate }) {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white">System Control Panel</h1>
-            <p className="text-slate-400 text-sm mt-1">Manage all registered medical stores, access limitations, and subscription renewals.</p>
+            <p className="text-slate-400 text-sm mt-1">Manage all registered medical stores, subscription plans (Monthly / Yearly), and access limits.</p>
           </div>
           <button 
             onClick={fetchTenants} 
@@ -125,20 +126,20 @@ export default function AdminPanel({ navigate }) {
             <div className="text-3xl font-bold text-white mt-2">{tenants.length} <span className="text-xs text-slate-500 font-normal">/ Max: {globalUserLimit}</span></div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <div className="text-slate-400 text-sm font-medium">Active Subscriptions</div>
-            <div className="text-3xl font-bold text-teal-400 mt-2">{activeStoresCount} Active</div>
+            <div className="text-slate-400 text-sm font-medium">Monthly Plans (₹249)</div>
+            <div className="text-3xl font-bold text-teal-400 mt-2">{monthlyCount} Active</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <div className="text-slate-400 text-sm font-medium">Suspended / Inactive</div>
-            <div className="text-3xl font-bold text-red-400 mt-2">{suspendedStoresCount} Suspended</div>
+            <div className="text-slate-400 text-sm font-medium">Yearly Plans (₹2999)</div>
+            <div className="text-3xl font-bold text-indigo-400 mt-2">{yearlyCount} Active</div>
           </div>
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-            <div className="text-slate-400 text-sm font-medium">Estimated MRR</div>
+            <div className="text-slate-400 text-sm font-medium">Total Collection Revenue</div>
             <div className="text-3xl font-bold text-green-400 mt-2">₹{totalRevenue}</div>
           </div>
         </div>
 
-        {/* Configuration Bar / User Limits */}
+        {/* Configuration Bar */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Shield className="text-red-400" size={20} />
@@ -183,15 +184,16 @@ export default function AdminPanel({ navigate }) {
                   <th className="px-6 py-4">Store Name</th>
                   <th className="px-6 py-4">Owner Email</th>
                   <th className="px-6 py-4">Phone</th>
-                  <th className="px-6 py-4">Status / Plan</th>
+                  <th className="px-6 py-4">Subscription Plan</th>
+                  <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions / Control</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="5" className="text-center py-12 text-slate-500">Loading store databases...</td></tr>
+                  <tr><td colSpan="6" className="text-center py-12 text-slate-500">Loading store databases...</td></tr>
                 ) : filteredTenants.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-12 text-slate-500">No stores found matching your search.</td></tr>
+                  <tr><td colSpan="6" className="text-center py-12 text-slate-500">No stores found matching your search.</td></tr>
                 ) : (
                   filteredTenants.map((t) => (
                     <tr key={t.id} className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors">
@@ -200,11 +202,20 @@ export default function AdminPanel({ navigate }) {
                       <td className="px-6 py-4 text-slate-300">{t.phone}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                          t.plan.includes('2999') || t.plan.toLowerCase().includes('yearly')
+                            ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                            : 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                        }`}>
+                          {t.plan}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
                           t.status === 'Active' 
-                            ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' 
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
                             : 'bg-red-500/10 text-red-400 border-red-500/20'
                         }`}>
-                          {t.status} ({t.plan})
+                          {t.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -214,11 +225,11 @@ export default function AdminPanel({ navigate }) {
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ml-auto ${
                             t.status === 'Active'
                               ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20'
-                              : 'bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20'
+                              : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'
                           }`}
                         >
                           {t.status === 'Active' ? <Lock size={12} /> : <Unlock size={12} />}
-                          {actionLoading === t.id ? 'Processing...' : (t.status === 'Active' ? 'Suspend Store' : 'Activate Store')}
+                          {actionLoading === t.id ? 'Processing...' : (t.status === 'Active' ? 'Suspend' : 'Activate')}
                         </button>
                       </td>
                     </tr>
