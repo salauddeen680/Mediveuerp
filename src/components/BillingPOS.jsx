@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Save, Printer, Download, Share2, Plus, Trash2 } from 'lucide-react';
+import { Save, Printer, Download, Share2, Plus, Trash2, Lock, ShieldAlert } from 'lucide-react'; // 🔥 Lock aur ShieldAlert add kiya hai UI ke liye
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 export default function BillingPOS({ data, user, showToast }) {
+  // 🔥 SAAS ACCESS CONTROL LOGIC (Ye naya add kiya hai) 🔥
+  const userStatus = data?.status || 'Active';
+  const userPlan = data?.plan || '7 Days Free Trial';
+  
+  // Trial expiry check (Agar account 7 din purana ho gaya hai)
+  const isTrial = String(userPlan).includes('7 Days');
+  const createdAt = data?.createdAt || Date.now();
+  const trialDaysLeft = isTrial ? Math.ceil((createdAt + (7 * 24 * 60 * 60 * 1000) - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+  const isTrialExpired = isTrial && trialDaysLeft <= 0;
+
+  // Agar account suspended hai ya trial khatam ho gaya hai toh isLocked = true
+  const isLocked = userStatus === 'Suspended' || isTrialExpired;
+
   // Store Settings
   const storeSettings = data?.settings?.general || {
     storeName: 'PHARMA WHOLESALE',
@@ -116,7 +129,6 @@ export default function BillingPOS({ data, user, showToast }) {
     }
   };
 
-  // 🔥 DIRECT PDF DOWNLOAD LOGIC 🔥
   const handleDownloadPDF = async () => {
     setIsProcessing(true);
     showToast('Generating PDF...');
@@ -138,7 +150,6 @@ export default function BillingPOS({ data, user, showToast }) {
     setIsProcessing(false);
   };
 
-  // 🔥 DIRECT SHARE BILL AS IMAGE LOGIC 🔥
   const handleShare = async () => {
     setIsProcessing(true);
     showToast('Preparing Bill Image for Share...');
@@ -157,7 +168,6 @@ export default function BillingPOS({ data, user, showToast }) {
           });
         } else {
           showToast('File sharing is not supported on this device. Trying to download instead...', 'error');
-          // Agar browser allow nahi karta toh image download kara do
           const link = document.createElement('a');
           link.href = URL.createObjectURL(blob);
           link.download = `${invoiceDetails.invoiceNumber}.png`;
@@ -171,6 +181,29 @@ export default function BillingPOS({ data, user, showToast }) {
     }
   };
 
+  // 🔥 YAHAN SCREEN LOCK HOGI AGAR PLAN NAHI HAI 🔥
+  if (isLocked) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="bg-slate-900 border border-red-500/20 p-8 rounded-2xl shadow-2xl max-w-lg w-full">
+          <div className="bg-red-500/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
+            {userStatus === 'Suspended' ? <ShieldAlert className="text-red-500" size={40} /> : <Lock className="text-red-500" size={40} />}
+          </div>
+          <h2 className="text-3xl font-bold text-white mb-3">Access Locked</h2>
+          <p className="text-slate-400 mb-8 text-lg">
+            {userStatus === 'Suspended' 
+              ? "Your account has been temporarily suspended by the Super Admin. Please contact support to resolve this issue."
+              : "Your 7-Day Free Trial has expired. To continue creating bills and managing your store, please upgrade to a premium plan."}
+          </p>
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 inline-block w-full">
+            <p className="text-teal-400 font-semibold">Please navigate to the <span className="text-white">"Subscription Plans"</span> section in your menu to upgrade your account.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 👇 YAHAN SE AAPKA PURANA BINA KISI CHHEDCHHAD WALA POS SYSTEM HAI 👇
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8 font-sans print:bg-white print:p-0">
       
