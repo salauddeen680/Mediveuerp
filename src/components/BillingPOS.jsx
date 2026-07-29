@@ -1,23 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { Save, Printer, Download, Share2, Plus, Trash2, Lock, ShieldAlert } from 'lucide-react'; // 🔥 Lock aur ShieldAlert add kiya hai UI ke liye
+import { Save, Printer, Download, Share2, Plus, Trash2, Lock, ShieldAlert } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 export default function BillingPOS({ data, user, showToast }) {
-  // 🔥 SAAS ACCESS CONTROL LOGIC (Ye naya add kiya hai) 🔥
+  // 🔥 SAAS ACCESS CONTROL & SMART COUNTDOWN LOGIC (Naya aur Perfect) 🔥
   const userStatus = data?.status || 'Active';
   const userPlan = data?.plan || '7 Days Free Trial';
   
-  // Trial expiry check (Agar account 7 din purana ho gaya hai)
-  const isTrial = String(userPlan).includes('7 Days');
-  const createdAt = data?.createdAt || Date.now();
-  const trialDaysLeft = isTrial ? Math.ceil((createdAt + (7 * 24 * 60 * 60 * 1000) - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
-  const isTrialExpired = isTrial && trialDaysLeft <= 0;
+  // Firebase timestamp ko sahi format mein convert karna
+  const createdAtRaw = data?.createdAt || Date.now();
+  const createdAt = typeof createdAtRaw === 'object' && createdAtRaw?.seconds 
+    ? createdAtRaw.seconds * 1000 
+    : createdAtRaw;
 
-  // Agar account suspended hai ya trial khatam ho gaya hai toh isLocked = true
-  const isLocked = userStatus === 'Suspended' || isTrialExpired;
+  // 1. Plan ke hisaab se Total Days decide karna (Trial, Monthly, Yearly)
+  let totalPlanDays = 0;
+  const planString = String(userPlan).toLowerCase();
+
+  if (planString.includes('7 days') || planString.includes('trial')) {
+    totalPlanDays = 7;
+  } else if (planString.includes('monthly') || planString.includes('249')) {
+    totalPlanDays = 30;
+  } else if (planString.includes('yearly') || planString.includes('2799')) {
+    totalPlanDays = 365;
+  } else if (planString.includes('lifetime')) {
+    totalPlanDays = 36500; // Lifetime access
+  } else {
+    totalPlanDays = 7; // Default safety
+  }
+
+  // 2. Bचे हुए दिन (Days Left) Calculate karna
+  const expiryDate = createdAt + (totalPlanDays * 24 * 60 * 60 * 1000);
+  const daysLeft = Math.ceil((expiryDate - Date.now()) / (1000 * 60 * 60 * 24));
+
+  // 3. Lock System Trigger (Agar din 0 ya minus ho gaye)
+  const isPlanExpired = daysLeft <= 0;
+  const isLocked = userStatus === 'Suspended' || isPlanExpired;
 
   // Store Settings
   const storeSettings = data?.settings?.general || {
@@ -181,7 +202,7 @@ export default function BillingPOS({ data, user, showToast }) {
     }
   };
 
-  // 🔥 YAHAN SCREEN LOCK HOGI AGAR PLAN NAHI HAI 🔥
+  // 🔥 YAHAN SCREEN LOCK HOGI AGAR PLAN NAHI HAI YA EXPIRE HO GAYA 🔥
   if (isLocked) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center font-sans">
@@ -193,7 +214,7 @@ export default function BillingPOS({ data, user, showToast }) {
           <p className="text-slate-400 mb-8 text-lg">
             {userStatus === 'Suspended' 
               ? "Your account has been temporarily suspended by the Super Admin. Please contact support to resolve this issue."
-              : "Your 7-Day Free Trial has expired. To continue creating bills and managing your store, please upgrade to a premium plan."}
+              : `Your ${userPlan} has expired. To continue creating bills and managing your store, please upgrade to a premium plan.`}
           </p>
           <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 inline-block w-full">
             <p className="text-teal-400 font-semibold">Please navigate to the <span className="text-white">"Subscription Plans"</span> section in your menu to upgrade your account.</p>
@@ -203,7 +224,7 @@ export default function BillingPOS({ data, user, showToast }) {
     );
   }
 
-  // 👇 YAHAN SE AAPKA PURANA BINA KISI CHHEDCHHAD WALA POS SYSTEM HAI 👇
+  // 👇 MAIN UI (Invoice + Subscription Alert Banner) 👇
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8 font-sans print:bg-white print:p-0">
       
@@ -220,6 +241,29 @@ export default function BillingPOS({ data, user, showToast }) {
           input::placeholder, textarea::placeholder { color: transparent !important; }
         }
       `}</style>
+
+      {/* 🔥 SUBSCRIPTION ALERT BANNER (Print hone par hide ho jayega) 🔥 */}
+      {!isLocked && (
+        <div className="max-w-[210mm] mx-auto mb-4 flex justify-between items-center bg-slate-800 border border-slate-700 px-4 py-2.5 rounded-xl print:hidden shadow-lg">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <span className="text-sm font-medium text-slate-400">
+              Current Plan: <span className="text-white font-bold ml-1">{userPlan}</span>
+            </span>
+          </div>
+          
+          <div className={`text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 ${
+            daysLeft <= 3 
+              ? 'bg-red-500/10 text-red-400 border border-red-500/20' 
+              : 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+          }`}>
+             ⏳ {daysLeft} Days Remaining
+          </div>
+        </div>
+      )}
 
       {/* INVOICE PAPER */}
       <div className="w-full max-w-[210mm] mx-auto bg-white text-black shadow-2xl rounded-sm overflow-hidden border border-gray-300" id="printable-invoice">
