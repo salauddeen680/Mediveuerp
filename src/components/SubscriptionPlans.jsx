@@ -1,33 +1,118 @@
-import React from 'react';
-// Agar aap react-router-dom use kar rahe hain toh use navigate ke liye import karein
-// import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
-const SubscriptionPlans = () => {
-  // const navigate = useNavigate();
+export default function SubscriptionPlans({ user, showToast, navigate }) {
+  const [loading, setLoading] = useState(false);
+
+  // Razorpay Checkout script load karne ke liye
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
 
   const handleSubscribe = async (planName, price) => {
-    // Yahan aap check karenge ki user logged in hai ya nahi
-    // Agar logged in nahi hai, toh: navigate('/login');
+    if (!user) {
+      alert("Please login first to subscribe!");
+      if (navigate) navigate('public', 'login');
+      return;
+    }
 
-    if (price === 0) {
-      console.log("7-Day Free Trial Activated!");
-      // Yahan Firebase Database mein user ka planEndDate +7 days update karne ka logic aayega
-      alert("Aapka 7-Day Free Trial shuru ho gaya hai!");
-    } else {
-      console.log(`Initiating Payment for ${planName} Plan - ₹${price}`);
-      // YAHAN AAP APNI ALAG SE BANAYI GAYI API CALL KARENGE
-      // Example: const order = await createRazorpayOrder(price);
-      alert(`Razorpay popup will open for ₹${price}`);
+    try {
+      setLoading(true);
+
+      // 1. Agar Free Trial hai
+      if (price === 0) {
+        const userRef = doc(db, 'users', user.uid);
+        await updateDoc(userRef, {
+          plan: '7 Days Free Trial',
+          status: 'Active',
+          updatedAt: serverTimestamp()
+        });
+        if (showToast) showToast('7-Day Free Trial Activated Successfully!');
+        else alert("7-Day Free Trial Activated Successfully!");
+        if (navigate) navigate('app', 'pos');
+        return;
+      }
+
+      // 2. Paid Plans ke liye Backend (api/razorpay.js) ko call karna
+      if (showToast) showToast(`Initiating payment for ${planName}...`);
+      
+      const response = await fetch('/api/razorpay', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: price }),
+      });
+
+      const order = await response.json();
+
+      if (!order.id) {
+        throw new Error(order.message || 'Failed to create payment order');
+      }
+
+      // 3. Razorpay Popup Configuration
+      const options = {
+        key: process.env.RAZORPAY_KEY_ID || 'rzp_test_YourKeyHere', // Vercel ya Test Key
+        amount: order.amount,
+        currency: order.currency,
+        name: 'Mediveu ERP',
+        description: `Subscription for ${planName}`,
+        order_id: order.id,
+        handler: async function (response) {
+          try {
+            // Payment successful hone par Firebase mein plan update karna
+            const userRef = doc(db, 'users', user.uid);
+            const planFullName = planName === 'Monthly' ? 'Monthly Plan (₹249)' : 'Yearly Plan (₹2799)';
+            
+            await updateDoc(userRef, {
+              plan: planFullName,
+              status: 'Active',
+              razorpayPaymentId: response.razorpay_payment_id,
+              updatedAt: serverTimestamp()
+            });
+
+            if (showToast) showToast('Payment Successful! Plan Activated.');
+            else alert('Payment Successful! Plan Activated.');
+            
+            // POS screen par redirect karna
+            if (navigate) navigate('app', 'pos');
+            else window.location.reload();
+
+          } catch (err) {
+            console.error("Firebase Update Error:", err);
+            alert("Payment was successful, but failed to update plan in database. Please contact support.");
+          }
+        },
+        prefill: {
+          email: user.email || '',
+        },
+        theme: {
+          color: '#2563eb',
+        },
+      };
+
+      const paymentWindow = new window.Razorpay(options);
+      paymentWindow.open();
+
+    } catch (error) {
+      console.error("Subscription Error:", error);
+      alert("Error: " + (error.message || 'Something went wrong during payment setup.'));
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-950 py-12 px-4 sm:px-6 lg:px-8 text-gray-100 font-sans">
       <div className="text-center max-w-3xl mx-auto mb-12">
-        <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+        <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
           Simple, Transparent Pricing
         </h2>
-        <p className="mt-4 text-lg text-gray-500">
+        <p className="mt-4 text-lg text-gray-400">
           Apne business ko grow karne ke liye best plan choose karein. No hidden fees.
         </p>
       </div>
@@ -35,98 +120,98 @@ const SubscriptionPlans = () => {
       <div className="max-w-7xl mx-auto grid gap-8 lg:grid-cols-3 lg:gap-12">
         
         {/* 1. Free Trial Plan */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 flex flex-col justify-between">
+        <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 p-8 flex flex-col justify-between">
           <div>
-            <h3 className="text-2xl font-semibold text-gray-900">Starter</h3>
-            <p className="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
+            <h3 className="text-2xl font-semibold text-white">Starter</h3>
+            <p className="mt-4 flex items-baseline text-5xl font-extrabold text-white">
               ₹0
-              <span className="ml-1 text-xl font-medium text-gray-500">/7 Days</span>
+              <span className="ml-1 text-xl font-medium text-gray-400">/7 Days</span>
             </p>
-            <p className="mt-6 text-gray-500">Naye users ke liye perfect trial.</p>
+            <p className="mt-6 text-gray-400">Naye users ke liye perfect trial.</p>
             <ul className="mt-6 space-y-4">
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> Full ERP Access
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> Full ERP Access
               </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> Basic Support
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> Basic Support
               </li>
             </ul>
           </div>
           <button
             onClick={() => handleSubscribe('Trial', 0)}
-            className="mt-8 block w-full bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-3 px-4 rounded-lg text-center transition"
+            disabled={loading}
+            className="mt-8 block w-full bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 font-bold py-3 px-4 rounded-lg text-center transition cursor-pointer"
           >
             Start Free Trial
           </button>
         </div>
 
         {/* 2. Monthly Plan */}
-        <div className="bg-white rounded-2xl shadow-xl border-2 border-blue-500 p-8 flex flex-col justify-between relative transform scale-105">
+        <div className="bg-gray-900 rounded-2xl shadow-xl border-2 border-blue-500 p-8 flex flex-col justify-between relative transform lg:scale-105">
           <div className="absolute top-0 inset-x-0 flex justify-center -mt-4">
             <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
               Most Popular
             </span>
           </div>
           <div>
-            <h3 className="text-2xl font-semibold text-gray-900">Monthly</h3>
-            <p className="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
+            <h3 className="text-2xl font-semibold text-white">Monthly</h3>
+            <p className="mt-4 flex items-baseline text-5xl font-extrabold text-white">
               ₹249
-              <span className="ml-1 text-xl font-medium text-gray-500">/mo</span>
+              <span className="ml-1 text-xl font-medium text-gray-400">/mo</span>
             </p>
-            <p className="mt-6 text-gray-500">Growing businesses ke liye best.</p>
+            <p className="mt-6 text-gray-400">Growing businesses ke liye best.</p>
             <ul className="mt-6 space-y-4">
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> All Trial Features
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> All Trial Features
               </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> Premium Support
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> Premium Support
               </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> Unlimited Billing
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> Unlimited Billing
               </li>
             </ul>
           </div>
           <button
             onClick={() => handleSubscribe('Monthly', 249)}
-            className="mt-8 block w-full bg-blue-600 text-white hover:bg-blue-700 font-bold py-3 px-4 rounded-lg text-center transition"
+            disabled={loading}
+            className="mt-8 block w-full bg-blue-600 text-white hover:bg-blue-700 font-bold py-3 px-4 rounded-lg text-center transition cursor-pointer shadow-lg shadow-blue-500/30"
           >
-            Subscribe Monthly
+            {loading ? 'Processing...' : 'Subscribe Monthly'}
           </button>
         </div>
 
         {/* 3. Yearly Plan */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 flex flex-col justify-between">
+        <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 p-8 flex flex-col justify-between">
           <div>
-            <h3 className="text-2xl font-semibold text-gray-900">Yearly</h3>
-            <p className="mt-4 flex items-baseline text-5xl font-extrabold text-gray-900">
+            <h3 className="text-2xl font-semibold text-white">Yearly</h3>
+            <p className="mt-4 flex items-baseline text-5xl font-extrabold text-white">
               ₹2799
-              <span className="ml-1 text-xl font-medium text-gray-500">/yr</span>
+              <span className="ml-1 text-xl font-medium text-gray-400">/yr</span>
             </p>
-            <p className="mt-6 text-gray-500">Long-term savings (Save ₹189).</p>
+            <p className="mt-6 text-gray-400">Long-term savings (Save ₹189).</p>
             <ul className="mt-6 space-y-4">
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> All Monthly Features
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> All Monthly Features
               </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> Priority 24/7 Support
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> Priority 24/7 Support
               </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span> Advanced Reports
+              <li className="flex items-start text-gray-300">
+                <span className="text-green-400 mr-2">✓</span> Advanced Reports
               </li>
             </ul>
           </div>
           <button
             onClick={() => handleSubscribe('Yearly', 2799)}
-            className="mt-8 block w-full bg-gray-800 text-white hover:bg-gray-900 font-bold py-3 px-4 rounded-lg text-center transition"
+            disabled={loading}
+            className="mt-8 block w-full bg-indigo-600 text-white hover:bg-indigo-700 font-bold py-3 px-4 rounded-lg text-center transition cursor-pointer"
           >
-            Subscribe Yearly
+            {loading ? 'Processing...' : 'Subscribe Yearly'}
           </button>
         </div>
 
       </div>
     </div>
   );
-};
-
-export default SubscriptionPlans;
-
+}
