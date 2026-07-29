@@ -112,10 +112,16 @@ export default function App() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
+  // 🔥 ADMIN ROUTING FIX (URL ya Hash mein /admin ya #admin hone par turant admin view set karega)
   useEffect(() => {
-    if (window.location.pathname === '/admin' || window.location.hash === '#admin') {
-      setCurrentView('admin');
-    }
+    const checkAdminRoute = () => {
+      if (window.location.pathname === '/admin' || window.location.hash === '#admin' || window.location.pathname.includes('admin')) {
+        setCurrentView('admin');
+      }
+    };
+    checkAdminRoute();
+    window.addEventListener('popstate', checkAdminRoute);
+    return () => window.removeEventListener('popstate', checkAdminRoute);
   }, []);
 
   useEffect(() => {
@@ -123,7 +129,8 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       clearTimeout(timer);
       setUser(currentUser);
-      if (currentUser && currentView !== 'admin') {
+      // Agar user logged in hai aur admin path par nahi hai, toh tenant dashboard par rakho
+      if (currentUser && currentView !== 'admin' && window.location.pathname !== '/admin' && window.location.hash !== '#admin') {
         setCurrentView('tenant');
         setCurrentPath('dashboard');
       }
@@ -133,7 +140,7 @@ export default function App() {
       setAuthLoading(false);
     });
     return () => { clearTimeout(timer); unsubscribe(); };
-  }, []);
+  }, [currentView]);
 
   useEffect(() => {
     if (!user || currentView !== 'tenant') return;
@@ -406,10 +413,8 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
 // TENANT DASHBOARD & VIEWS
 // ==========================================
 function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout, data }) {
-  // 🔥 Aapka Edit Bill Logic Bilkul safe hai!
   const [billToEdit, setBillToEdit] = useState(null);
 
-  // 🔥 YAHAN MAINE "UPGRADE PLAN" KA NAYA BUTTON MENU MEIN ADD KIYA HAI
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
     { id: 'billing', label: 'Billing / POS', icon: <CreditCard size={20} /> },
@@ -432,8 +437,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
         navigate('tenant', 'billing');
       }} />;
       
-      // 🔥 YAHAN SUBSCRIPTION PLAN PAGE KHOLEGA JAB KOI UPGRADE PAR CLICK KAREGA
-      case 'subscription': return <SubscriptionPlans />;
+      case 'subscription': return <SubscriptionPlans user={user} showToast={showToast} navigate={navigate} />;
       
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
       default: return <TenantDashboardView data={data} />;
