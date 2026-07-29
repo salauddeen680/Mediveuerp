@@ -10,10 +10,12 @@ import { auth, db } from './firebase';
 import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { collection, doc, setDoc, getDocs, onSnapshot, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 
-// Biling code alag component se hi aayega, jaisa aapne set kiya tha
+// Aapke components import ho rahe hain
 import BillingPOS from './components/BillingPOS';
 import AdminPanel from './components/AdminPanel';
-import Reports from './components/Reports'; // 🔥 Naya Reports Component Import Kiya
+import Reports from './components/Reports';
+// 🔥 YAHAN MAINE SUBSCRIPTION PLANS IMPORT KIYA HAI
+import SubscriptionPlans from './components/SubscriptionPlans'; 
 
 // --- UTILITY COMPONENTS ---
 
@@ -110,7 +112,6 @@ export default function App() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // Handle direct secret admin route check on initial load
   useEffect(() => {
     if (window.location.pathname === '/admin' || window.location.hash === '#admin') {
       setCurrentView('admin');
@@ -250,7 +251,6 @@ const HomeView = ({ setActiveTab, showToast }) => (
         <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg">Create Account / 7 Days Free Trial</Button>
       </div>
     </div>
-    
     <FeaturesView />
     <PricingView setActiveTab={setActiveTab} showToast={showToast} />
   </>
@@ -406,33 +406,34 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
 // TENANT DASHBOARD & VIEWS
 // ==========================================
 function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout, data }) {
-  // 🔥 NAYA CODE: Ye state bill pakadne ke kaam aayegi
+  // 🔥 Aapka Edit Bill Logic Bilkul safe hai!
   const [billToEdit, setBillToEdit] = useState(null);
 
+  // 🔥 YAHAN MAINE "UPGRADE PLAN" KA NAYA BUTTON MENU MEIN ADD KIYA HAI
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
     { id: 'billing', label: 'Billing / POS', icon: <CreditCard size={20} /> },
     { id: 'medicines', label: 'Inventory', icon: <Package size={20} /> },
     { id: 'customers', label: 'Customers', icon: <Users size={20} /> },
     { id: 'reports', label: 'Reports', icon: <FileText size={20} /> },
+    { id: 'subscription', label: 'Upgrade Plan', icon: <Shield size={20} className="text-teal-400" /> }, 
     { id: 'settings', label: 'Settings & Backup', icon: <Settings size={20} /> },
   ];
 
   const renderContent = () => {
     switch (currentPath) {
       case 'dashboard': return <TenantDashboardView data={data} />;
-      
-      // 🔥 NAYA CODE: BillingPOS ko billToEdit bheja gaya
       case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} editBill={billToEdit} setBillToEdit={setBillToEdit} />;
-      
       case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
       case 'customers': return <TenantCustomersView data={data} />;
       
-      // 🔥 NAYA CODE: Reports se button dabane par yahan billToEdit set hoga aur page change hoga
       case 'reports': return <Reports data={data} onOpenBill={(bill) => {
         setBillToEdit(bill);
         navigate('tenant', 'billing');
       }} />;
+      
+      // 🔥 YAHAN SUBSCRIPTION PLAN PAGE KHOLEGA JAB KOI UPGRADE PAR CLICK KAREGA
+      case 'subscription': return <SubscriptionPlans />;
       
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
       default: return <TenantDashboardView data={data} />;
@@ -449,7 +450,6 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
           {navItems.map(item => (
             <button 
               key={item.id} 
-              // 🔥 NAYA CODE: Agar side menu se Billing par click kiya to purana bill clear ho jayega
               onClick={() => {
                 if (item.id === 'billing') setBillToEdit(null);
                 navigate('tenant', item.id);
