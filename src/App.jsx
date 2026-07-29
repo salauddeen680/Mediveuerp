@@ -3,7 +3,8 @@ import {
   Menu, X, Home, CreditCard, Package, Users, Truck, FileText, 
   Settings, LogOut, Plus, Edit, Trash2, Search, Printer, 
   Download, Activity, CheckCircle, AlertTriangle, Shield, 
-  Database, Check, ChevronRight, TrendingUp, Share2, Upload 
+  Database, Check, ChevronRight, TrendingUp, Share2, Upload, 
+  ShieldCheck, Clock, ArrowRight 
 } from 'lucide-react';
 
 import { auth, db } from './firebase';
@@ -14,7 +15,6 @@ import { collection, doc, setDoc, getDocs, onSnapshot, deleteDoc, updateDoc, add
 import BillingPOS from './components/BillingPOS';
 import AdminPanel from './components/AdminPanel';
 import Reports from './components/Reports';
-// 🔥 YAHAN MAINE SUBSCRIPTION PLANS IMPORT KIYA HAI
 import SubscriptionPlans from './components/SubscriptionPlans'; 
 
 // --- UTILITY COMPONENTS ---
@@ -112,7 +112,7 @@ export default function App() {
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // 🔥 ADMIN ROUTING FIX (URL ya Hash mein /admin ya #admin hone par turant admin view set karega)
+  // 🔥 ADMIN ROUTING FIX
   useEffect(() => {
     const checkAdminRoute = () => {
       if (window.location.pathname === '/admin' || window.location.hash === '#admin' || window.location.pathname.includes('admin')) {
@@ -129,7 +129,6 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       clearTimeout(timer);
       setUser(currentUser);
-      // Agar user logged in hai aur admin path par nahi hai, toh tenant dashboard par rakho
       if (currentUser && currentView !== 'admin' && window.location.pathname !== '/admin' && window.location.hash !== '#admin') {
         setCurrentView('tenant');
         setCurrentPath('dashboard');
@@ -427,7 +426,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
 
   const renderContent = () => {
     switch (currentPath) {
-      case 'dashboard': return <TenantDashboardView data={data} />;
+      case 'dashboard': return <TenantDashboardView data={data} navigate={navigate} />;
       case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} editBill={billToEdit} setBillToEdit={setBillToEdit} />;
       case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
       case 'customers': return <TenantCustomersView data={data} />;
@@ -440,7 +439,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
       case 'subscription': return <SubscriptionPlans user={user} showToast={showToast} navigate={navigate} />;
       
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
-      default: return <TenantDashboardView data={data} />;
+      default: return <TenantDashboardView data={data} navigate={navigate} />;
     }
   };
 
@@ -469,6 +468,19 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
         </div>
       </aside>
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Global Days Remaining Header Top Bar */}
+        <div className="bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex justify-between items-center shadow-md">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs md:text-sm text-slate-300">
+              Active Plan: <span className="text-white font-semibold ml-1">{data?.plan || '7 Days Free Trial'}</span>
+            </span>
+          </div>
+        </div>
+
         <main className="flex-1 overflow-y-auto p-6 bg-slate-950">{renderContent()}</main>
         <Footer />
       </div>
@@ -476,7 +488,93 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
   );
 }
 
-function TenantDashboardView({ data }) {
+// 🔥 SUBSCRIPTION TEMPLATE CARD (Dashboard ke theek upar dikhega)
+function PlanStatusCard({ data, navigate }) {
+  const userPlan = data?.plan || '7 Days Free Trial';
+  const userStatus = data?.status || 'Active';
+  
+  const createdAtRaw = data?.createdAt || Date.now();
+  const createdAt = typeof createdAtRaw === 'object' && createdAtRaw?.seconds 
+    ? createdAtRaw.seconds * 1000 
+    : createdAtRaw;
+
+  let totalPlanDays = 7;
+  const planString = String(userPlan).toLowerCase();
+
+  if (planString.includes('7 days') || planString.includes('trial')) {
+    totalPlanDays = 7;
+  } else if (planString.includes('monthly') || planString.includes('249')) {
+    totalPlanDays = 30;
+  } else if (planString.includes('yearly') || planString.includes('2799')) {
+    totalPlanDays = 365;
+  } else if (planString.includes('lifetime')) {
+    totalPlanDays = 36500;
+  }
+
+  const expiryTimestamp = createdAt + (totalPlanDays * 24 * 60 * 60 * 1000);
+  const daysLeft = Math.ceil((expiryTimestamp - Date.now()) / (1000 * 60 * 60 * 24));
+  const expiryDateString = new Date(expiryTimestamp).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+
+  return (
+    <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-2xl p-6 shadow-2xl mb-6 relative overflow-hidden">
+      <div className="absolute -right-10 -top-10 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+        <div className="flex items-start gap-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+            daysLeft <= 3 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
+          }`}>
+            {daysLeft <= 3 ? <AlertTriangle size={24} /> : <ShieldCheck size={24} />}
+          </div>
+          
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold tracking-wider uppercase text-slate-400">Current Active Subscription</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                userStatus === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              }`}>
+                {userStatus}
+              </span>
+            </div>
+            <h2 className="text-2xl font-bold text-white mt-1">{userPlan}</h2>
+            <p className="text-sm text-slate-400 mt-0.5">
+              Valid up to: <span className="text-slate-200 font-medium">{expiryDateString}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
+          <div className={`px-4 py-2.5 rounded-xl border flex items-center gap-3 ${
+            daysLeft <= 3 
+              ? 'bg-red-500/10 border-red-500/30 text-red-300' 
+              : 'bg-slate-950/60 border-slate-700/60 text-slate-200'
+          }`}>
+            <Clock size={20} className={daysLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-teal-400'} />
+            <div>
+              <div className="text-[10px] uppercase font-bold text-slate-400">Time Status</div>
+              <div className="text-sm font-extrabold">
+                {daysLeft > 0 ? `${daysLeft} Days Remaining` : 'Plan Expired!'}
+              </div>
+            </div>
+          </div>
+
+          <button 
+            onClick={() => navigate && navigate('tenant', 'subscription')}
+            className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            Upgrade Plan <ArrowRight size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TenantDashboardView({ data, navigate }) {
   const { medicines, bills } = data;
   
   const totalSales = bills.reduce((acc, b) => {
@@ -486,6 +584,9 @@ function TenantDashboardView({ data }) {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {/* 🔥 Dashboard Overview ke theek upar Subscription Card */}
+      <PlanStatusCard data={data} navigate={navigate} />
+
       <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <Card><div className="text-slate-400 text-sm">Total Revenue</div><div className="text-3xl font-bold text-green-400 mt-1">₹{totalSales.toFixed(2)}</div></Card>
