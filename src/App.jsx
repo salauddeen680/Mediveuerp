@@ -109,6 +109,7 @@ export default function App() {
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [settings, setSettings] = useState({});
+  const [userData, setUserData] = useState({}); // 🔥 User ka Firestore data track karne ke liye
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -141,9 +142,19 @@ export default function App() {
     return () => { clearTimeout(timer); unsubscribe(); };
   }, [currentView]);
 
+  // 🔥 Tenant Data & User Document Real-time Listener (Plan details ke liye)
   useEffect(() => {
     if (!user || currentView !== 'tenant') return;
+
+    // User doc listener (plan & createdAt lene ke liye)
+    const unsubUser = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setUserData(docSnap.data());
+      }
+    });
+
     const unsubs = [
+      unsubUser,
       onSnapshot(collection(db, 'users', user.uid, 'medicines'), (snap) => setMedicines(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(collection(db, 'users', user.uid, 'bills'), (snap) => setBills(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(collection(db, 'users', user.uid, 'customers'), (snap) => setCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
@@ -182,13 +193,25 @@ export default function App() {
     );
   }
 
+  // Combined data object jisme user ka plan aur data dono pass honge
+  const combinedTenantData = {
+    medicines,
+    bills,
+    customers,
+    suppliers,
+    settings,
+    plan: userData?.plan || '7 Days Free Trial',
+    status: userData?.status || 'Active',
+    createdAt: userData?.createdAt || Date.now()
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30 flex flex-col justify-between">
       {currentView === 'public' && <PublicWebsite navigate={navigate} showToast={showToast} />}
       {currentView === 'tenant' && (
         <TenantDashboard 
           user={user} navigate={navigate} currentPath={currentPath} showToast={showToast} handleLogout={handleLogout}
-          data={{ medicines, bills, customers, suppliers, settings }}
+          data={combinedTenantData}
         />
       )}
       {currentView === 'admin' && (
@@ -468,18 +491,9 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
         </div>
       </aside>
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Global Active Plan Top Bar */}
-        <div className="bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex justify-between items-center shadow-md">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <span className="text-xs md:text-sm text-slate-300">
-              Active Plan: <span className="text-white font-semibold ml-1">{data?.plan || '7 Days Free Trial'}</span>
-            </span>
-          </div>
-        </div>
+        
+        {/* 🔥 HEADER TOP BAR WITH LIVE TICKING TIMER */}
+        <HeaderTimerBar data={data} navigate={navigate} />
 
         <main className="flex-1 overflow-y-auto p-6 bg-slate-950">{renderContent()}</main>
         <Footer />
@@ -488,27 +502,29 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
   );
 }
 
-// 🔥 PROFESSIONAL LIVE RUNNING COUNTDOWN TIMER & SUBSCRIPTION TEMPLATE CARD 🔥
-function PlanStatusCard({ data, navigate }) {
+// ==========================================
+// CENTRALIZED TIME CALCULATOR HOOK/HELPER
+// ==========================================
+function useSubscriptionTimer(data) {
   const userPlan = data?.plan || '7 Days Free Trial';
   const userStatus = data?.status || 'Active';
   
   const createdAtRaw = data?.createdAt || Date.now();
   const createdAt = typeof createdAtRaw === 'object' && createdAtRaw?.seconds 
     ? createdAtRaw.seconds * 1000 
-    : createdAtRaw;
+    : Number(createdAtRaw) || Date.now();
 
-  // Plan wise days assignment logic
+  // Smart Plan Days Mapping
   let totalPlanDays = 7;
   const planString = String(userPlan).toLowerCase();
 
   if (planString.includes('7 days') || planString.includes('trial')) {
     totalPlanDays = 7;
-  } else if (planString.includes('monthly') || planString.includes('249')) {
+  } else if (planString.includes('monthly') || planString.includes('249') || planString.includes('month')) {
     totalPlanDays = 30;
-  } else if (planString.includes('yearly') || planString.includes('2799')) {
+  } else if (planString.includes('yearly') || planString.includes('2799') || planString.includes('year')) {
     totalPlanDays = 365;
-  } else if (planString.includes('lifetime')) {
+  } else if (planString.includes('lifetime') || planString.includes('unlimited')) {
     totalPlanDays = 36500;
   }
 
@@ -519,7 +535,6 @@ function PlanStatusCard({ data, navigate }) {
     year: 'numeric'
   });
 
-  // Live Timer State
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: false });
 
   useEffect(() => {
@@ -543,7 +558,68 @@ function PlanStatusCard({ data, navigate }) {
     return () => clearInterval(timer);
   }, [expiryTimestamp]);
 
-  const isUrgent = timeLeft.days <= 3;
+  return {
+    userPlan,
+    userStatus,
+    expiryDateString,
+    timeLeft,
+    isUrgent: timeLeft.days <= 3
+  };
+}
+
+// ==========================================
+// HEADER LIVE TOP BAR COMPONENT
+// ==========================================
+function HeaderTimerBar({ data, navigate }) {
+  const { userPlan, timeLeft, isUrgent } = useSubscriptionTimer(data);
+
+  return (
+    <div className={`border-b px-6 py-2.5 flex flex-col sm:flex-row justify-between items-center shadow-md gap-2 transition-colors ${
+      isUrgent || timeLeft.isExpired 
+        ? 'bg-red-950/40 border-red-500/40' 
+        : 'bg-slate-900 border-slate-800'
+    }`}>
+      <div className="flex items-center gap-3">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isUrgent ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
+          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isUrgent ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
+        </span>
+        <span className="text-xs md:text-sm text-slate-300">
+          Active Plan: <span className="text-white font-semibold ml-1">{userPlan}</span>
+        </span>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className={`text-xs font-bold px-3 py-1 rounded-lg border font-mono ${
+          isUrgent || timeLeft.isExpired 
+            ? 'bg-red-500/20 border-red-500/40 text-red-300 animate-pulse' 
+            : 'bg-slate-950/80 border-slate-700/60 text-teal-400'
+        }`}>
+          {timeLeft.isExpired ? (
+            <span>EXPIRED</span>
+          ) : (
+            <span>
+              ⏳ {timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s left
+            </span>
+          )}
+        </div>
+
+        <button 
+          onClick={() => navigate && navigate('tenant', 'subscription')}
+          className="text-xs bg-teal-500 hover:bg-teal-600 text-white font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm"
+        >
+          Upgrade
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// DASHBOARD SUBSCRIPTION CARD COMPONENT
+// ==========================================
+function PlanStatusCard({ data, navigate }) {
+  const { userPlan, userStatus, expiryDateString, timeLeft, isUrgent } = useSubscriptionTimer(data);
 
   return (
     <div className={`border rounded-2xl p-6 shadow-2xl mb-6 relative overflow-hidden transition-all duration-300 ${
