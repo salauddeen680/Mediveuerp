@@ -468,7 +468,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
         </div>
       </aside>
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Global Days Remaining Header Top Bar */}
+        {/* Global Active Plan Top Bar */}
         <div className="bg-slate-900 border-b border-slate-800 px-6 py-2.5 flex justify-between items-center shadow-md">
           <div className="flex items-center gap-3">
             <span className="relative flex h-2.5 w-2.5">
@@ -488,7 +488,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
   );
 }
 
-// 🔥 SUBSCRIPTION TEMPLATE CARD (Dashboard ke theek upar dikhega)
+// 🔥 PROFESSIONAL LIVE RUNNING COUNTDOWN TIMER & SUBSCRIPTION TEMPLATE CARD 🔥
 function PlanStatusCard({ data, navigate }) {
   const userPlan = data?.plan || '7 Days Free Trial';
   const userStatus = data?.status || 'Active';
@@ -498,6 +498,7 @@ function PlanStatusCard({ data, navigate }) {
     ? createdAtRaw.seconds * 1000 
     : createdAtRaw;
 
+  // Plan wise days assignment logic
   let totalPlanDays = 7;
   const planString = String(userPlan).toLowerCase();
 
@@ -512,23 +513,56 @@ function PlanStatusCard({ data, navigate }) {
   }
 
   const expiryTimestamp = createdAt + (totalPlanDays * 24 * 60 * 60 * 1000);
-  const daysLeft = Math.ceil((expiryTimestamp - Date.now()) / (1000 * 60 * 60 * 24));
   const expiryDateString = new Date(expiryTimestamp).toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
     year: 'numeric'
   });
 
+  // Live Timer State
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: false });
+
+  useEffect(() => {
+    const calculateTime = () => {
+      const now = Date.now();
+      const difference = expiryTimestamp - now;
+
+      if (difference <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true });
+      } else {
+        const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((difference / 1000 / 60) % 60);
+        const seconds = Math.floor((difference / 1000) % 60);
+        setTimeLeft({ days, hours, minutes, seconds, isExpired: false });
+      }
+    };
+
+    calculateTime();
+    const timer = setInterval(calculateTime, 1000);
+    return () => clearInterval(timer);
+  }, [expiryTimestamp]);
+
+  const isUrgent = timeLeft.days <= 3;
+
   return (
-    <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-2xl p-6 shadow-2xl mb-6 relative overflow-hidden">
-      <div className="absolute -right-10 -top-10 w-40 h-40 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div className={`border rounded-2xl p-6 shadow-2xl mb-6 relative overflow-hidden transition-all duration-300 ${
+      isUrgent || timeLeft.isExpired 
+        ? 'bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border-red-500/50 shadow-red-500/10' 
+        : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700/80 shadow-teal-500/5'
+    }`}>
+      <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-3xl pointer-events-none ${
+        isUrgent || timeLeft.isExpired ? 'bg-red-500/20' : 'bg-teal-500/10'
+      }`}></div>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+        
+        {/* Left Side: Icon & Plan Details */}
         <div className="flex items-start gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-            daysLeft <= 3 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
+            isUrgent || timeLeft.isExpired ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
           }`}>
-            {daysLeft <= 3 ? <AlertTriangle size={24} /> : <ShieldCheck size={24} />}
+            {isUrgent || timeLeft.isExpired ? <AlertTriangle size={24} className="animate-bounce" /> : <ShieldCheck size={24} />}
           </div>
           
           <div>
@@ -547,28 +581,43 @@ function PlanStatusCard({ data, navigate }) {
           </div>
         </div>
 
+        {/* Right Side: Live Countdown Timer & Upgrade Button */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
+          
+          {/* Live Countdown Box */}
           <div className={`px-4 py-2.5 rounded-xl border flex items-center gap-3 ${
-            daysLeft <= 3 
-              ? 'bg-red-500/10 border-red-500/30 text-red-300' 
+            isUrgent || timeLeft.isExpired 
+              ? 'bg-red-500/15 border-red-500/40 text-red-200 shadow-lg shadow-red-500/10' 
               : 'bg-slate-950/60 border-slate-700/60 text-slate-200'
           }`}>
-            <Clock size={20} className={daysLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-teal-400'} />
+            <Clock size={20} className={isUrgent ? 'text-red-400 animate-pulse' : 'text-teal-400'} />
             <div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">Time Status</div>
-              <div className="text-sm font-extrabold">
-                {daysLeft > 0 ? `${daysLeft} Days Remaining` : 'Plan Expired!'}
+              <div className="text-[10px] uppercase font-bold text-slate-400">Live Time Remaining</div>
+              <div className="text-sm font-extrabold tracking-wide">
+                {timeLeft.isExpired ? (
+                  <span className="text-red-400 font-bold">Plan Expired!</span>
+                ) : (
+                  <span className="font-mono">
+                    {timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
+          {/* Upgrade Button */}
           <button 
             onClick={() => navigate && navigate('tenant', 'subscription')}
-            className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg shadow-teal-500/20 flex items-center justify-center gap-2 cursor-pointer"
+            className={`font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer ${
+              isUrgent || timeLeft.isExpired
+                ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-red-600/30 animate-pulse'
+                : 'bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-teal-500/20'
+            }`}
           >
             Upgrade Plan <ArrowRight size={16} />
           </button>
         </div>
+
       </div>
     </div>
   );
@@ -584,7 +633,7 @@ function TenantDashboardView({ data, navigate }) {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* 🔥 Dashboard Overview ke theek upar Subscription Card */}
+      {/* 🔥 Live Running Countdown Subscription Card */}
       <PlanStatusCard data={data} navigate={navigate} />
 
       <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
