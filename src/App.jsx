@@ -38,7 +38,7 @@ const Input = ({ label, className = '', ...props }) => (
   <div className={`flex flex-col gap-1 ${className}`}>
     {label && <label className="text-sm text-slate-400">{label}</label>}
     <input 
-      className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500 transition-colors"
+      className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-teal-500 transition-colors w-full"
       {...props} 
     />
   </div>
@@ -109,11 +109,10 @@ export default function App() {
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [settings, setSettings] = useState({});
-  const [userData, setUserData] = useState({}); // 🔥 User ka Firestore data track karne ke liye
+  const [userData, setUserData] = useState({}); 
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  // 🔥 ADMIN ROUTING FIX
   useEffect(() => {
     const checkAdminRoute = () => {
       if (window.location.pathname === '/admin' || window.location.hash === '#admin' || window.location.pathname.includes('admin')) {
@@ -142,11 +141,9 @@ export default function App() {
     return () => { clearTimeout(timer); unsubscribe(); };
   }, [currentView]);
 
-  // 🔥 Tenant Data & User Document Real-time Listener (Plan details ke liye)
   useEffect(() => {
     if (!user || currentView !== 'tenant') return;
 
-    // User doc listener (plan & createdAt lene ke liye)
     const unsubUser = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
       if (docSnap.exists()) {
         setUserData(docSnap.data());
@@ -193,7 +190,6 @@ export default function App() {
     );
   }
 
-  // Combined data object jisme user ka plan aur data dono pass honge
   const combinedTenantData = {
     medicines,
     bills,
@@ -223,7 +219,7 @@ export default function App() {
 }
 
 // ==========================================
-// PUBLIC WEBSITE
+// PUBLIC WEBSITE (Kept unchanged)
 // ==========================================
 function PublicWebsite({ navigate, showToast }) {
   const [activeTab, setActiveTab] = useState('home');
@@ -276,8 +272,8 @@ const HomeView = ({ setActiveTab, showToast }) => (
       <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10">
         Manage inventory with batch & expiry tracking, generate professional GST invoices, and grow your pharma business securely.
       </p>
-      <div className="flex justify-center gap-4">
-        <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg">Create Account / 7 Days Free Trial</Button>
+      <div className="flex justify-center gap-4 flex-wrap">
+        <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg w-full sm:w-auto">Create Account / 7 Days Free Trial</Button>
       </div>
     </div>
     <FeaturesView />
@@ -343,7 +339,7 @@ const ContactView = () => (
   <div className="max-w-xl mx-auto py-24 px-4 text-white text-center space-y-4">
     <h2 className="text-3xl font-bold mb-4">Contact Support</h2>
     <p className="text-slate-400">If you face any issues with your subscription, billing, or software setup, reach out to us directly:</p>
-    <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-teal-400 font-semibold">
+    <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl text-teal-400 font-semibold break-all">
       saifyt915@gmail.com
     </div>
   </div>
@@ -353,7 +349,7 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   return (
-    <div className="max-w-md mx-auto py-20 px-4">
+    <div className="max-w-md mx-auto py-20 px-4 w-full">
       <Card>
         <h2 className="text-2xl font-bold text-white mb-4 text-center">Store Login</h2>
         <form onSubmit={async e => { 
@@ -386,7 +382,7 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
   const [storeName, setStoreName] = useState('');
   
   return (
-    <div className="max-w-md mx-auto py-20 px-4">
+    <div className="max-w-md mx-auto py-20 px-4 w-full">
       <Card>
         <h2 className="text-2xl font-bold text-white mb-4 text-center">Create Store Account</h2>
         <form onSubmit={async e => { 
@@ -432,10 +428,11 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
 };
 
 // ==========================================
-// TENANT DASHBOARD & VIEWS
+// TENANT DASHBOARD & VIEWS (🔥 WITH RESPONSIVE FIXES)
 // ==========================================
 function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout, data }) {
   const [billToEdit, setBillToEdit] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar state
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
@@ -467,10 +464,23 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden">
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
-        <div className="h-16 px-4 border-b border-slate-800 flex items-center gap-2 font-bold text-white">
-          <Plus className="text-teal-400" /> MEDIVEU ERP
+    <div className="flex h-screen bg-slate-950 overflow-hidden relative">
+      
+      {/* 🔥 Mobile Sidebar Overlay (Toggles sidebar close) */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-30 md:hidden" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* 🔥 Responsive Sidebar */}
+      <aside className={`fixed md:static inset-y-0 left-0 z-40 w-64 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out bg-slate-900 border-r border-slate-800 flex flex-col`}>
+        <div className="h-16 px-4 border-b border-slate-800 flex items-center justify-between font-bold text-white">
+          <div className="flex items-center gap-2"><Plus className="text-teal-400" /> MEDIVEU ERP</div>
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+            <X size={24} />
+          </button>
         </div>
         <div className="p-4 space-y-1 flex-1 overflow-y-auto">
           {navItems.map(item => (
@@ -479,6 +489,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
               onClick={() => {
                 if (item.id === 'billing') setBillToEdit(null);
                 navigate('tenant', item.id);
+                setIsSidebarOpen(false); // Auto close menu on mobile after click
               }} 
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer ${currentPath === item.id ? 'bg-teal-500/10 text-teal-400' : 'text-slate-300 hover:bg-slate-800'}`}
             >
@@ -490,12 +501,12 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
           </button>
         </div>
       </aside>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        
-        {/* 🔥 HEADER TOP BAR WITH LIVE TICKING TIMER */}
-        <HeaderTimerBar data={data} navigate={navigate} />
 
-        <main className="flex-1 overflow-y-auto p-6 bg-slate-950">{renderContent()}</main>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* 🔥 Header bar gets the toggle functionality */}
+        <HeaderTimerBar data={data} navigate={navigate} onMenuToggle={() => setIsSidebarOpen(true)} />
+
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-950 w-full">{renderContent()}</main>
         <Footer />
       </div>
     </div>
@@ -503,7 +514,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
 }
 
 // ==========================================
-// CENTRALIZED TIME CALCULATOR HOOK/HELPER
+// CENTRALIZED TIME CALCULATOR HOOK
 // ==========================================
 function useSubscriptionTimer(data) {
   const userPlan = data?.plan || '7 Days Free Trial';
@@ -514,7 +525,6 @@ function useSubscriptionTimer(data) {
     ? createdAtRaw.seconds * 1000 
     : Number(createdAtRaw) || Date.now();
 
-  // Smart Plan Days Mapping
   let totalPlanDays = 7;
   const planString = String(userPlan).toLowerCase();
 
@@ -558,39 +568,39 @@ function useSubscriptionTimer(data) {
     return () => clearInterval(timer);
   }, [expiryTimestamp]);
 
-  return {
-    userPlan,
-    userStatus,
-    expiryDateString,
-    timeLeft,
-    isUrgent: timeLeft.days <= 3
-  };
+  return { userPlan, userStatus, expiryDateString, timeLeft, isUrgent: timeLeft.days <= 3 };
 }
 
 // ==========================================
-// HEADER LIVE TOP BAR COMPONENT
+// HEADER LIVE TOP BAR COMPONENT (🔥 RESPONSIVE FIXED)
 // ==========================================
-function HeaderTimerBar({ data, navigate }) {
+function HeaderTimerBar({ data, navigate, onMenuToggle }) {
   const { userPlan, timeLeft, isUrgent } = useSubscriptionTimer(data);
 
   return (
-    <div className={`border-b px-6 py-2.5 flex flex-col sm:flex-row justify-between items-center shadow-md gap-2 transition-colors ${
+    <div className={`border-b px-4 md:px-6 py-2.5 flex flex-wrap md:flex-row justify-between items-center shadow-md gap-3 md:gap-2 transition-colors w-full ${
       isUrgent || timeLeft.isExpired 
         ? 'bg-red-950/40 border-red-500/40' 
         : 'bg-slate-900 border-slate-800'
     }`}>
-      <div className="flex items-center gap-3">
+      
+      {/* Mobile Hamburger & Active Plan details */}
+      <div className="flex items-center gap-3 w-full md:w-auto">
+        <button onClick={onMenuToggle} className="md:hidden text-slate-300 hover:text-white p-1 -ml-2">
+          <Menu size={24} />
+        </button>
         <span className="relative flex h-2.5 w-2.5">
           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isUrgent ? 'bg-red-400' : 'bg-emerald-400'}`}></span>
           <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isUrgent ? 'bg-red-500' : 'bg-emerald-500'}`}></span>
         </span>
-        <span className="text-xs md:text-sm text-slate-300">
+        <span className="text-xs md:text-sm text-slate-300 truncate">
           Active Plan: <span className="text-white font-semibold ml-1">{userPlan}</span>
         </span>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className={`text-xs font-bold px-3 py-1 rounded-lg border font-mono ${
+      {/* Timer and Upgrade button */}
+      <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto">
+        <div className={`text-xs font-bold px-3 py-1.5 rounded-lg border font-mono whitespace-nowrap ${
           isUrgent || timeLeft.isExpired 
             ? 'bg-red-500/20 border-red-500/40 text-red-300 animate-pulse' 
             : 'bg-slate-950/80 border-slate-700/60 text-teal-400'
@@ -599,14 +609,14 @@ function HeaderTimerBar({ data, navigate }) {
             <span>EXPIRED</span>
           ) : (
             <span>
-              ⏳ {timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s left
+              ⏳ {timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m left
             </span>
           )}
         </div>
 
         <button 
           onClick={() => navigate && navigate('tenant', 'subscription')}
-          className="text-xs bg-teal-500 hover:bg-teal-600 text-white font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm"
+          className="text-xs bg-teal-500 hover:bg-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm whitespace-nowrap"
         >
           Upgrade
         </button>
@@ -622,7 +632,7 @@ function PlanStatusCard({ data, navigate }) {
   const { userPlan, userStatus, expiryDateString, timeLeft, isUrgent } = useSubscriptionTimer(data);
 
   return (
-    <div className={`border rounded-2xl p-6 shadow-2xl mb-6 relative overflow-hidden transition-all duration-300 ${
+    <div className={`border rounded-2xl p-4 md:p-6 shadow-2xl mb-6 relative overflow-hidden transition-all duration-300 w-full ${
       isUrgent || timeLeft.isExpired 
         ? 'bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border-red-500/50 shadow-red-500/10' 
         : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700/80 shadow-teal-500/5'
@@ -631,10 +641,10 @@ function PlanStatusCard({ data, navigate }) {
         isUrgent || timeLeft.isExpired ? 'bg-red-500/20' : 'bg-teal-500/10'
       }`}></div>
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 relative z-10">
         
         {/* Left Side: Icon & Plan Details */}
-        <div className="flex items-start gap-4">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
             isUrgent || timeLeft.isExpired ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
           }`}>
@@ -642,34 +652,34 @@ function PlanStatusCard({ data, navigate }) {
           </div>
           
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold tracking-wider uppercase text-slate-400">Current Active Subscription</span>
+            <div className="flex items-center flex-wrap gap-2">
+              <span className="text-xs font-semibold tracking-wider uppercase text-slate-400">Current Subscription</span>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
                 userStatus === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
               }`}>
                 {userStatus}
               </span>
             </div>
-            <h2 className="text-2xl font-bold text-white mt-1">{userPlan}</h2>
-            <p className="text-sm text-slate-400 mt-0.5">
+            <h2 className="text-xl md:text-2xl font-bold text-white mt-1 break-words">{userPlan}</h2>
+            <p className="text-xs md:text-sm text-slate-400 mt-0.5">
               Valid up to: <span className="text-slate-200 font-medium">{expiryDateString}</span>
             </p>
           </div>
         </div>
 
         {/* Right Side: Live Countdown Timer & Upgrade Button */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full xl:w-auto">
           
           {/* Live Countdown Box */}
-          <div className={`px-4 py-2.5 rounded-xl border flex items-center gap-3 ${
+          <div className={`px-4 py-3 rounded-xl border flex items-center gap-3 w-full sm:w-auto ${
             isUrgent || timeLeft.isExpired 
               ? 'bg-red-500/15 border-red-500/40 text-red-200 shadow-lg shadow-red-500/10' 
               : 'bg-slate-950/60 border-slate-700/60 text-slate-200'
           }`}>
-            <Clock size={20} className={isUrgent ? 'text-red-400 animate-pulse' : 'text-teal-400'} />
+            <Clock size={20} className={`shrink-0 ${isUrgent ? 'text-red-400 animate-pulse' : 'text-teal-400'}`} />
             <div>
-              <div className="text-[10px] uppercase font-bold text-slate-400">Live Time Remaining</div>
-              <div className="text-sm font-extrabold tracking-wide">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Time Remaining</div>
+              <div className="text-sm md:text-base font-extrabold tracking-wide">
                 {timeLeft.isExpired ? (
                   <span className="text-red-400 font-bold">Plan Expired!</span>
                 ) : (
@@ -684,7 +694,7 @@ function PlanStatusCard({ data, navigate }) {
           {/* Upgrade Button */}
           <button 
             onClick={() => navigate && navigate('tenant', 'subscription')}
-            className={`font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer ${
+            className={`font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto whitespace-nowrap ${
               isUrgent || timeLeft.isExpired
                 ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-red-600/30 animate-pulse'
                 : 'bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-teal-500/20'
@@ -708,15 +718,14 @@ function TenantDashboardView({ data, navigate }) {
   }, 0);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* 🔥 Live Running Countdown Subscription Card */}
+    <div className="space-y-6 max-w-7xl mx-auto w-full">
       <PlanStatusCard data={data} navigate={navigate} />
 
-      <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <Card><div className="text-slate-400 text-sm">Total Revenue</div><div className="text-3xl font-bold text-green-400 mt-1">₹{totalSales.toFixed(2)}</div></Card>
-        <Card><div className="text-slate-400 text-sm">Total Invoices</div><div className="text-3xl font-bold text-blue-400 mt-1">{bills.length}</div></Card>
-        <Card><div className="text-slate-400 text-sm">Total Medicines</div><div className="text-3xl font-bold text-teal-400 mt-1">{medicines.length}</div></Card>
+      <h1 className="text-xl md:text-2xl font-bold text-white">Dashboard Overview</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+        <Card><div className="text-slate-400 text-sm">Total Revenue</div><div className="text-2xl md:text-3xl font-bold text-green-400 mt-1">₹{totalSales.toFixed(2)}</div></Card>
+        <Card><div className="text-slate-400 text-sm">Total Invoices</div><div className="text-2xl md:text-3xl font-bold text-blue-400 mt-1">{bills.length}</div></Card>
+        <Card><div className="text-slate-400 text-sm">Total Medicines</div><div className="text-2xl md:text-3xl font-bold text-teal-400 mt-1">{medicines.length}</div></Card>
       </div>
     </div>
   );
@@ -732,36 +741,71 @@ function TenantMedicinesView({ data, showToast, user }) {
     setIsModalOpen(false);
   };
   return (
-    <div className="space-y-4 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center"><h1 className="text-2xl font-bold text-white">Inventory Management</h1><Button onClick={() => setIsModalOpen(true)}>Add Medicine</Button></div>
-      <Card className="p-0 overflow-hidden"><table className="w-full text-sm text-left"><thead className="bg-slate-900 text-slate-400"><tr><th className="p-3">Name</th><th className="p-3">Batch</th><th className="p-3">Expiry</th><th className="p-3">Stock</th><th className="p-3">MRP</th></tr></thead><tbody>{data.medicines.map(m => <tr key={m.id} className="border-b border-slate-800"><td className="p-3 text-white font-medium">{m.name}</td><td className="p-3">{m.batch}</td><td className="p-3">{m.expiry}</td><td className="p-3">{m.stock}</td><td className="p-3">₹{m.mrp}</td></tr>)}</tbody></table></Card>
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Medicine"><form onSubmit={handleSave} className="space-y-4"><Input label="Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required /><Input label="Batch" value={form.batch} onChange={e => setForm({...form, batch: e.target.value})} required /><Input label="Expiry (MM/YY)" value={form.expiry} onChange={e => setForm({...form, expiry: e.target.value})} required /><Input label="Stock" type="number" value={form.stock} onChange={e => setForm({...form, stock: Number(e.target.value)})} required /><Input label="MRP" type="number" value={form.mrp} onChange={e => setForm({...form, mrp: Number(e.target.value)})} required /><Button type="submit">Save</Button></form></Modal>
+    <div className="space-y-4 max-w-7xl mx-auto w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-xl md:text-2xl font-bold text-white">Inventory Management</h1>
+        <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">Add Medicine</Button>
+      </div>
+      <Card className="p-0 overflow-hidden">
+        {/* 🔥 overflow-x-auto for mobile tables */}
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="bg-slate-900 text-slate-400">
+              <tr><th className="p-3">Name</th><th className="p-3">Batch</th><th className="p-3">Expiry</th><th className="p-3">Stock</th><th className="p-3">MRP</th></tr>
+            </thead>
+            <tbody>
+              {data.medicines.map(m => (
+                <tr key={m.id} className="border-b border-slate-800 hover:bg-slate-800/50">
+                  <td className="p-3 text-white font-medium">{m.name}</td>
+                  <td className="p-3">{m.batch}</td><td className="p-3">{m.expiry}</td>
+                  <td className="p-3">{m.stock}</td><td className="p-3">₹{m.mrp}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Medicine">
+        <form onSubmit={handleSave} className="space-y-4">
+          <Input label="Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Batch" value={form.batch} onChange={e => setForm({...form, batch: e.target.value})} required />
+            <Input label="Expiry (MM/YY)" value={form.expiry} onChange={e => setForm({...form, expiry: e.target.value})} required />
+            <Input label="Stock" type="number" value={form.stock} onChange={e => setForm({...form, stock: Number(e.target.value)})} required />
+            <Input label="MRP" type="number" value={form.mrp} onChange={e => setForm({...form, mrp: Number(e.target.value)})} required />
+          </div>
+          <Button type="submit" className="w-full mt-4">Save</Button>
+        </form>
+      </Modal>
     </div>
   );
 }
 
 function TenantCustomersView({ data }) {
   return (
-    <div className="max-w-7xl mx-auto space-y-4">
-      <h1 className="text-2xl font-bold text-white">Customers Directory</h1>
+    <div className="max-w-7xl mx-auto space-y-4 w-full">
+      <h1 className="text-xl md:text-2xl font-bold text-white">Customers Directory</h1>
       <Card className="p-0 overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-slate-900 text-slate-400">
-            <tr><th className="p-3">Customer Name</th><th className="p-3">GSTIN</th><th className="p-3 text-right">Total Purchases</th></tr>
-          </thead>
-          <tbody>
-            {data.bills.map((b, i) => (
-              <tr key={i} className="border-b border-slate-800">
-                <td className="p-3 text-white font-medium">{b.customerName}</td>
-                <td className="p-3 text-slate-300">{b.customerGstin || 'N/A'}</td>
-                <td className="p-3 text-right text-teal-400">₹{Number(b.total).toFixed(2)}</td>
-              </tr>
-            ))}
-            {data.bills.length === 0 && (
-              <tr><td colSpan="3" className="text-center py-8 text-slate-500">No customer bills recorded yet.</td></tr>
-            )}
-          </tbody>
-        </table>
+        {/* 🔥 overflow-x-auto for mobile tables */}
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-sm text-left whitespace-nowrap">
+            <thead className="bg-slate-900 text-slate-400">
+              <tr><th className="p-3">Customer Name</th><th className="p-3">GSTIN</th><th className="p-3 text-right">Total Purchases</th></tr>
+            </thead>
+            <tbody>
+              {data.bills.map((b, i) => (
+                <tr key={i} className="border-b border-slate-800 hover:bg-slate-800/50">
+                  <td className="p-3 text-white font-medium">{b.customerName}</td>
+                  <td className="p-3 text-slate-300">{b.customerGstin || 'N/A'}</td>
+                  <td className="p-3 text-right text-teal-400">₹{Number(b.total).toFixed(2)}</td>
+                </tr>
+              ))}
+              {data.bills.length === 0 && (
+                <tr><td colSpan="3" className="text-center py-8 text-slate-500">No customer bills recorded yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );
@@ -808,8 +852,8 @@ function TenantSettingsView({ data, showToast, user }) {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-white">Store Settings & Backup</h1>
+    <div className="max-w-3xl mx-auto space-y-6 w-full">
+      <h1 className="text-xl md:text-2xl font-bold text-white">Store Settings & Backup</h1>
       <Card>
         <form onSubmit={handleSave} className="space-y-4">
           <Input label="Store Name" value={formData.storeName} onChange={e => setFormData({...formData, storeName: e.target.value})} required />
@@ -817,14 +861,14 @@ function TenantSettingsView({ data, showToast, user }) {
           <Input label="Phone" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
           <Input label="GSTIN" value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} />
           <Input label="Drug License Number" value={formData.dlNumber} onChange={e => setFormData({...formData, dlNumber: e.target.value})} />
-          <div className="flex justify-end pt-4"><Button type="submit">Save Settings</Button></div>
+          <div className="flex justify-end pt-4"><Button type="submit" className="w-full sm:w-auto">Save Settings</Button></div>
         </form>
       </Card>
 
       <Card className="border-teal-500/30">
-        <h3 className="text-xl font-bold text-white mb-2">Data Backup & Export</h3>
+        <h3 className="text-lg md:text-xl font-bold text-white mb-2">Data Backup & Export</h3>
         <p className="text-slate-400 text-sm mb-4">Download a complete JSON backup of your store inventory, bills, customers, and settings for safe keeping.</p>
-        <Button onClick={handleExportBackup} variant="secondary" className="gap-2">
+        <Button onClick={handleExportBackup} variant="secondary" className="gap-2 w-full sm:w-auto">
           <Download size={18} /> Download Store Backup (.json)
         </Button>
       </Card>
