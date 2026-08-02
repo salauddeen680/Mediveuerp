@@ -57,7 +57,7 @@ export default function SubscriptionPlans({ user, showToast, navigate }) {
       // 3. Razorpay Popup Configuration
       const options = {
         // VITE FIX: Yahan apni asli Live Key zaroor daalein!
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_YAHAN_APNI_ASLI_LIVE_KEY_DAALEIN', 
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_live_TJllxy7SrOKeRr', 
         amount: order.amount,
         currency: order.currency,
         name: 'Mediveu ERP',
