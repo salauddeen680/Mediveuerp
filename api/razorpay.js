@@ -1,6 +1,6 @@
-const Razorpay = require('razorpay');
+import Razorpay from 'razorpay';
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // CORS Headers - Frontend ko block hone se bachane ke liye
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Body ko parse karna (agar frontend se string format mein aaya ho)
+    // Body ko parse karna zaroori hai Vercel environments mein
     let body = req.body;
     if (typeof body === 'string') {
       body = JSON.parse(body);
@@ -30,21 +30,18 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ message: 'Amount is required' });
     }
 
-    // Live Keys environment variables se lena
     const razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID, 
       key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
 
     const options = {
-      amount: Math.round(amount * 100), // Amount hamesha paise mein hona chahiye (Math.round decimal error se bachata hai)
+      amount: Math.round(amount * 100), // Amount paise mein
       currency: 'INR',
       receipt: `receipt_${Math.floor(Math.random() * 1000000)}`,
     };
 
     const order = await razorpay.orders.create(options);
-    
-    // Success hone par order frontend ko bhejna
     return res.status(200).json(order);
     
   } catch (error) {
