@@ -4,6 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Save, Printer, Download, Share2, Plus, Trash2, Lock, ShieldAlert } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import logo from '../logo.png'; // 🔥 LOGO IMPORT HO GAYA 🔥
 
 export default function BillingPOS({ data, user, showToast }) {
   // 🔥 SAAS ACCESS CONTROL & SMART COUNTDOWN LOGIC (Naya aur Perfect) 🔥
@@ -268,9 +269,15 @@ export default function BillingPOS({ data, user, showToast }) {
       {/* INVOICE PAPER */}
       <div className="w-full max-w-[210mm] mx-auto bg-white text-black shadow-2xl rounded-sm overflow-hidden border border-gray-300" id="printable-invoice">
         
-        {/* HEADER */}
-        <div className="border-b border-black p-4 text-center relative">
+        {/* HEADER WITH LOGO 🔥 */}
+        <div className="border-b border-black p-4 text-center relative flex flex-col items-center justify-center">
           <div className="absolute right-4 top-4 text-xs font-bold text-gray-500 print:hidden">Original for Buyer</div>
+          
+          {/* Logo Yahan Add Kiya Hai */}
+          <div className="flex justify-center mb-2">
+            <img src={logo} alt="Store Logo" style={{ height: '60px', objectFit: 'contain' }} />
+          </div>
+
           <h1 className="text-3xl font-extrabold uppercase tracking-wide text-black">{storeSettings.storeName}</h1>
           <p className="text-sm font-medium mt-1 uppercase text-black">{storeSettings.address}</p>
           <p className="text-sm font-medium text-black">Phone : {storeSettings.phone}</p>
