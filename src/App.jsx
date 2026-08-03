@@ -8,7 +8,13 @@ import {
 } from 'lucide-react';
 
 import { auth, db } from './firebase';
-import { onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut,
+  sendPasswordResetEmail // 🔥 FORGOT PASSWORD LOGIC IMPORTED
+} from 'firebase/auth';
 import { collection, doc, setDoc, getDocs, onSnapshot, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // Aapke components import ho rahe hain
@@ -16,6 +22,9 @@ import BillingPOS from './components/BillingPOS';
 import AdminPanel from './components/AdminPanel';
 import Reports from './components/Reports';
 import SubscriptionPlans from './components/SubscriptionPlans'; 
+
+// 🔥 AAPKA NAYA LOGO IMPORT HO RAHA HAI
+import logo from './logo.png';
 
 // --- UTILITY COMPONENTS ---
 
@@ -219,7 +228,7 @@ export default function App() {
 }
 
 // ==========================================
-// PUBLIC WEBSITE (Kept unchanged)
+// PUBLIC WEBSITE
 // ==========================================
 function PublicWebsite({ navigate, showToast }) {
   const [activeTab, setActiveTab] = useState('home');
@@ -240,12 +249,13 @@ function PublicWebsite({ navigate, showToast }) {
     <div className="flex flex-col min-h-screen bg-slate-950">
       <nav className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-20">
+          
+          {/* 🔥 MAIN BRANDING LOGO PLACEMENT HERE */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
-            <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
-              <Plus size={24} />
-            </div>
-            <span className="text-2xl font-bold text-white">MEDIVEU <span className="text-teal-400">ERP</span></span>
+            <img src={logo} alt="Mediveu Logo" className="h-10 w-auto object-contain drop-shadow-md rounded-md" />
+            <span className="text-2xl font-bold text-white tracking-wide">MEDIVEU <span className="text-teal-400">ERP</span></span>
           </div>
+
           <div className="hidden md:flex items-center space-x-8">
             {['home', 'features', 'pricing', 'contact'].map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} className={`text-sm font-medium capitalize cursor-pointer ${activeTab === tab ? 'text-teal-400' : 'text-slate-300 hover:text-white'}`}>
@@ -345,12 +355,41 @@ const ContactView = () => (
   </div>
 );
 
+// 🔥 LOGIN VIEW UPDATED WITH FORGOT PASSWORD LOGIC 🔥
 const LoginView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  // Forgot Password States
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      showToast('Please enter your email', 'error');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, resetEmail);
+      showToast('Password reset link sent! Please check your email inbox.');
+      setIsForgotModalOpen(false);
+      setResetEmail('');
+    } catch (err) {
+      if (err.code === 'auth/user-not-found') {
+        showToast('No account found with this email.', 'error');
+      } else {
+        showToast(err.message.replace('Firebase:', ''), 'error');
+      }
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto py-20 px-4 w-full">
       <Card>
+        <div className="flex justify-center mb-4">
+          <img src={logo} alt="Mediveu Logo" className="h-16 w-auto object-contain rounded-md" />
+        </div>
         <h2 className="text-2xl font-bold text-white mb-4 text-center">Store Login</h2>
         <form onSubmit={async e => { 
           e.preventDefault(); 
@@ -368,10 +407,42 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
         }} className="space-y-4">
           <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
           <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+          
+          <div className="flex justify-end">
+            <button 
+              type="button" 
+              onClick={() => setIsForgotModalOpen(true)} 
+              className="text-sm text-teal-400 hover:text-teal-300 transition-colors"
+            >
+              Forgot Password?
+            </button>
+          </div>
+
           <Button type="submit" className="w-full">Login</Button>
         </form>
-        <div className="mt-4 text-center text-sm text-slate-400">New here? <button onClick={() => setActiveTab('register')} className="text-teal-400">Create Account</button></div>
+        <div className="mt-4 text-center text-sm text-slate-400">
+          New here? <button onClick={() => setActiveTab('register')} className="text-teal-400 ml-1">Create Account</button>
+        </div>
       </Card>
+
+      {/* Forgot Password Modal */}
+      <Modal isOpen={isForgotModalOpen} onClose={() => setIsForgotModalOpen(false)} title="Reset Password">
+        <form onSubmit={handlePasswordReset} className="space-y-4">
+          <p className="text-slate-300 text-sm">
+            Enter your registered email address below. We will send you a secure link to reset your password.
+          </p>
+          <Input 
+            label="Email Address" 
+            type="email" 
+            value={resetEmail} 
+            onChange={e => setResetEmail(e.target.value)} 
+            placeholder="e.g. store@example.com"
+            required 
+          />
+          <Button type="submit" className="w-full mt-2">Send Reset Link</Button>
+        </form>
+      </Modal>
+
     </div>
   );
 };
@@ -440,7 +511,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
     { id: 'medicines', label: 'Inventory', icon: <Package size={20} /> },
     { id: 'customers', label: 'Customers', icon: <Users size={20} /> },
     { id: 'reports', label: 'Reports', icon: <FileText size={20} /> },
-    { id: 'subscription', label: 'Upgrade Plan', icon: <Shield size={20} className="text-teal-400" /> }, 
+    { id: 'subscription', label: 'Upgrade Plan', icon: <Shield size={20} className="text-teal-400" /> },     
     { id: 'settings', label: 'Settings & Backup', icon: <Settings size={20} /> },
   ];
 
@@ -474,10 +545,13 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
         />
       )}
 
-      {/* 🔥 Responsive Sidebar */}
+      {/* 🔥 Responsive Sidebar & LOGO FIX */}
       <aside className={`fixed md:static inset-y-0 left-0 z-40 w-64 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out bg-slate-900 border-r border-slate-800 flex flex-col`}>
         <div className="h-16 px-4 border-b border-slate-800 flex items-center justify-between font-bold text-white">
-          <div className="flex items-center gap-2"><Plus className="text-teal-400" /> MEDIVEU ERP</div>
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="Dashboard Logo" className="h-8 w-auto object-contain rounded" />
+            <span className="tracking-wide">MEDIVEU ERP</span>
+          </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
             <X size={24} />
           </button>
