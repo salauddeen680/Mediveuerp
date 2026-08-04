@@ -1,0 +1,27 @@
+const CACHE_NAME = "mediveu-erp-v1";
+const urlsToCache = [
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/favicon.png"
+];
+
+// Install Event: Yeh aapki basic files ko save (cache) kar lega
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log("Files cached successfully");
+      return cache.addAll(urlsToCache);
+    })
+  );
+});
+
+// Fetch Event: Agar net band hai, toh yeh saved files dikhayega
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
+    })
+  );
+});
+
