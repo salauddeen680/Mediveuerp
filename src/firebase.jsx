@@ -2,7 +2,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore"; // Database ke liye
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore"; // Offline function add kiya
 import { getAuth } from "firebase/auth"; // Login ke liye
 
 // Your web app's Firebase configuration using Vite Environment Variables
@@ -21,3 +21,16 @@ const app = initializeApp(firebaseConfig);
 // App ke baaki hisso mein use karne ke liye inko export karein
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Database ko offline enable karne ka setup
+enableIndexedDbPersistence(db)
+  .then(() => {
+    console.log("Offline database enable ho gaya!");
+  })
+  .catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.log("Agar multiple tabs open hain, toh offline mode sirf ek mein chalega.");
+    } else if (err.code === 'unimplemented') {
+      console.log("Browser offline mode support nahi karta.");
+    }
+  });
