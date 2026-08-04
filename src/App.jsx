@@ -893,3 +893,4 @@ function TenantSettingsView({ data, showToast, user }) {
     </div>
   );
 }
+
