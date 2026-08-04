@@ -1,25 +1,22 @@
 import React, { useRef } from 'react';
 import html2canvas from 'html2canvas';
 
-// Yeh 'data' hum baad mein BillingPOS se bhejenge. Abhi testing ke liye optional banaya hai.
 const ModernTemplate = ({ data, logoUrl }) => {
-  const invoiceRef = useRef(null); // Print/Photo lene ke liye area select karega
+  const invoiceRef = useRef(null);
 
   // 1. PRINT FUNCTION
   const handlePrint = () => {
     window.print();
   };
 
-  // 2. SHARE AS PHOTO FUNCTION (WhatsApp, Email)
+  // 2. SHARE AS PHOTO FUNCTION
   const handleShare = async () => {
     if (!invoiceRef.current) return;
     try {
-      // Bill ka screenshot (photo) le raha hai
       const canvas = await html2canvas(invoiceRef.current, { scale: 2 });
       canvas.toBlob(async (blob) => {
         const file = new File([blob], `Invoice_${data?.invoiceNo || 'Bill'}.png`, { type: 'image/png' });
         
-        // Agar browser support karta hai (zyadatar mobile mein chalega)
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
@@ -35,7 +32,7 @@ const ModernTemplate = ({ data, logoUrl }) => {
     }
   };
 
-  // 3. SAVE FUNCTION (Ek click mein Download)
+  // 3. SAVE FUNCTION
   const handleSave = async () => {
     if (!invoiceRef.current) return;
     const canvas = await html2canvas(invoiceRef.current, { scale: 2 });
@@ -46,10 +43,26 @@ const ModernTemplate = ({ data, logoUrl }) => {
     link.click();
   };
 
+  // Total Calculation (Dynamic)
+  let subtotal = 0;
+  let totalTax = 0;
+  if (data?.items) {
+    data.items.forEach(item => {
+      const qty = Number(item.qty) || 0;
+      const rate = Number(item.rate) || 0;
+      const base = qty * rate;
+      const dis = base * ((Number(item.disPercent) || 0) / 100);
+      const afterDis = base - dis;
+      totalTax += afterDis * ((Number(item.gstPercent) || 0) / 100);
+      subtotal += afterDis;
+    });
+  }
+  const grandTotal = Math.round(subtotal + totalTax);
+
   return (
     <div className="max-w-4xl mx-auto p-4 bg-gray-50">
       
-      {/* BUTTONS (Yeh Print karte time apne aap chhip jayenge - 'print:hidden' ki wajah se) */}
+      {/* BUTTONS */}
       <div className="flex justify-end gap-3 mb-6 print:hidden">
         <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 font-semibold">
           🖨️ Print
@@ -62,17 +75,17 @@ const ModernTemplate = ({ data, logoUrl }) => {
         </button>
       </div>
 
-      {/* INVOICE AREA (Jo print ya share hoga) */}
+      {/* INVOICE AREA */}
       <div ref={invoiceRef} className="bg-white p-8 border rounded-sm shadow-sm text-gray-800" style={{ minHeight: '1000px' }}>
         
         {/* HEADER: Logo Left, Details Right */}
         <div className="flex justify-between items-start border-b pb-6 mb-6">
           <div className="w-1/2">
-            {/* Logo Left Side */}
+            {/* Logo Left Side - Size Reduced */}
             {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="max-h-20 object-contain" />
+              <img src={logoUrl} alt="Logo" className="h-12 w-auto object-contain" />
             ) : (
-              <div className="text-3xl font-bold text-blue-600 tracking-wider">YOUR LOGO</div>
+              <div className="text-2xl font-bold text-blue-600 tracking-wider">YOUR LOGO</div>
             )}
           </div>
           
@@ -80,8 +93,7 @@ const ModernTemplate = ({ data, logoUrl }) => {
             <h1 className="text-4xl font-light text-gray-400 mb-2">INVOICE</h1>
             <h2 className="text-xl font-bold text-gray-800">Company Name</h2>
             <p className="text-sm text-gray-600">123 Business Road, City, State</p>
-            <p className="text-sm text-gray-600">Phone: +91 9876543210</p>
-            {/* Dynamic GSTIN (Agar pass kiya toh dikhega) */}
+            {data?.companyPhone && <p className="text-sm text-gray-600">Phone: {data.companyPhone}</p>}
             {data?.companyGst && <p className="text-sm text-gray-600 font-semibold">GSTIN: {data.companyGst}</p>}
           </div>
         </div>
@@ -100,26 +112,40 @@ const ModernTemplate = ({ data, logoUrl }) => {
           </div>
         </div>
 
-        {/* TABLE (Modern Look) */}
+        {/* TABLE (Modern Look with Dynamic Real Items) */}
         <table className="w-full text-left border-collapse mb-8">
           <thead>
             <tr className="bg-gray-100 text-gray-600 text-sm border-b-2 border-gray-300">
-              <th className="py-2 px-2 font-semibold">S.No.</th>
+              <th className="py-2 px-2 font-semibold w-12">S.No.</th>
               <th className="py-2 px-2 font-semibold">Item Description</th>
-              <th className="py-2 px-2 font-semibold text-center">Qty</th>
-              <th className="py-2 px-2 font-semibold text-right">Rate</th>
-              <th className="py-2 px-2 font-semibold text-right">Amount</th>
+              <th className="py-2 px-2 font-semibold text-center w-20">Qty</th>
+              <th className="py-2 px-2 font-semibold text-right w-24">Rate</th>
+              <th className="py-2 px-2 font-semibold text-right w-32">Amount</th>
             </tr>
           </thead>
           <tbody>
-            {/* Dummy Row - Baad mein .map lagayenge */}
-            <tr className="border-b border-gray-100">
-              <td className="py-3 px-2">1</td>
-              <td className="py-3 px-2 text-gray-700">Sample Product</td>
-              <td className="py-3 px-2 text-center">2</td>
-              <td className="py-3 px-2 text-right">₹500.00</td>
-              <td className="py-3 px-2 text-right font-medium">₹1000.00</td>
-            </tr>
+            {data?.items && data.items.map((item, index) => {
+              const qty = Number(item.qty) || 0;
+              const rate = Number(item.rate) || 0;
+              const disP = Number(item.disPercent) || 0;
+              const gstP = Number(item.gstPercent) || 0;
+              
+              const baseAmount = qty * rate;
+              const disAmt = baseAmount * (disP / 100);
+              const afterDis = baseAmount - disAmt;
+              const gstAmt = afterDis * (gstP / 100);
+              const totalAmount = afterDis + gstAmt;
+
+              return (
+                <tr key={item.id || index} className="border-b border-gray-100">
+                  <td className="py-3 px-2 text-sm">{index + 1}</td>
+                  <td className="py-3 px-2 text-sm text-gray-800 font-medium">{item.description || 'Item Name'}</td>
+                  <td className="py-3 px-2 text-sm text-center">{qty}</td>
+                  <td className="py-3 px-2 text-sm text-right">₹{rate.toFixed(2)}</td>
+                  <td className="py-3 px-2 text-sm text-right font-medium">₹{totalAmount.toFixed(2)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -133,18 +159,17 @@ const ModernTemplate = ({ data, logoUrl }) => {
           <div className="w-1/3">
             <div className="flex justify-between border-b pb-2 mb-2">
               <span className="text-sm text-gray-600">Subtotal:</span>
-              <span className="text-sm font-semibold">₹1000.00</span>
+              <span className="text-sm font-semibold">₹{subtotal.toFixed(2)}</span>
             </div>
-            {/* Optional Tax Field */}
-            {data?.tax > 0 && (
+            {totalTax > 0 && (
               <div className="flex justify-between border-b pb-2 mb-2">
                 <span className="text-sm text-gray-600">Tax (GST):</span>
-                <span className="text-sm font-semibold">₹{data.tax}</span>
+                <span className="text-sm font-semibold">₹{totalTax.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between bg-gray-50 p-2 rounded">
               <span className="text-lg font-bold">Total:</span>
-              <span className="text-lg font-bold text-blue-600">₹1000.00</span>
+              <span className="text-lg font-bold text-blue-600">₹{grandTotal.toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -162,4 +187,3 @@ const ModernTemplate = ({ data, logoUrl }) => {
 };
 
 export default ModernTemplate;
-
