@@ -142,20 +142,6 @@ export default function BillingPOS({ data, user, showToast }) {
     setIsProcessing(false);
   };
 
-  // Naye templates ke liye format kiya hua data
-  const formattedDataForTemplates = {
-    invoiceNo: invoiceDetails.invoiceNumber,
-    date: invoiceDetails.invoiceDate,
-    customerName: buyerDetails.name,
-    customerAddress: buyerDetails.address,
-    customerGst: buyerDetails.gstin,
-    companyPhone: storeSettings.phone,
-    companyGst: storeSettings.gstin,
-    discount: totals.discount.toFixed(2),
-    tax: (totals.cgst + totals.sgst).toFixed(2),
-    items: items // Note: You can map this inside templates if you expand them later
-  };
-
   if (isLocked) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center font-sans">
@@ -169,6 +155,18 @@ export default function BillingPOS({ data, user, showToast }) {
       </div>
     );
   }
+
+  // COMMON PROPS OBJECT (Taaki baar-baar same code na likhna pade)
+  const commonProps = {
+    logo, storeSettings,
+    invoiceDetails, setInvoiceDetails,
+    buyerDetails, setBuyerDetails,
+    bankDetails, setBankDetails,
+    amountInWords, setAmountInWords, // Sabme bhej dete hain, agar zarurat ho
+    terms, setTerms,
+    items, handleItemChange, addRow, removeRow,
+    totals
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8 font-sans print:bg-white print:p-0">
@@ -192,13 +190,13 @@ export default function BillingPOS({ data, user, showToast }) {
             value={selectedTemplate}
             onChange={(e) => setSelectedTemplate(e.target.value)}
           >
-            <option value="classic">1. Classic GST (Editable)</option>
+            <option value="classic">1. Classic GST</option>
             <option value="modern">2. Modern Minimal</option>
             <option value="corporate">3. Corporate Blue</option>
             <option value="service">4. Service / Freelance</option>
             <option value="compact">5. Compact Retail</option>
           </select>
-          <span className="text-xs text-slate-400 ml-2">*(Edit data in Classic, then switch to preview/print)*</span>
+          <span className="text-xs text-slate-400 ml-2">*(All templates are now 100% Editable)*</span>
         </div>
 
         {/* FIREBASE SAVE BUTTON */}
@@ -207,26 +205,13 @@ export default function BillingPOS({ data, user, showToast }) {
         </button>
       </div>
 
-      {/* INVOICE RENDER AREA */}
+      {/* INVOICE RENDER AREA (Ab sabme Common Props ja rahe hain) */}
       <div className="w-full">
-        {selectedTemplate === 'classic' && (
-          <ClassicTemplate 
-            logo={logo} storeSettings={storeSettings}
-            invoiceDetails={invoiceDetails} setInvoiceDetails={setInvoiceDetails}
-            buyerDetails={buyerDetails} setBuyerDetails={setBuyerDetails}
-            bankDetails={bankDetails} setBankDetails={setBankDetails}
-            amountInWords={amountInWords} setAmountInWords={setAmountInWords}
-            terms={terms} setTerms={setTerms}
-            items={items} handleItemChange={handleItemChange} addRow={addRow} removeRow={removeRow}
-            totals={totals}
-          />
-        )}
-        
-        {/* Read-Only Preview Templates (Inme already print/share buttons hain) */}
-        {selectedTemplate === 'modern' && <ModernTemplate data={formattedDataForTemplates} logoUrl={logo} />}
-        {selectedTemplate === 'corporate' && <CorporateTemplate data={formattedDataForTemplates} logoUrl={logo} />}
-        {selectedTemplate === 'service' && <ServiceTemplate data={formattedDataForTemplates} logoUrl={logo} />}
-        {selectedTemplate === 'compact' && <CompactTemplate data={formattedDataForTemplates} logoUrl={logo} />}
+        {selectedTemplate === 'classic' && <ClassicTemplate {...commonProps} />}
+        {selectedTemplate === 'modern' && <ModernTemplate {...commonProps} />}
+        {selectedTemplate === 'corporate' && <CorporateTemplate {...commonProps} />}
+        {selectedTemplate === 'service' && <ServiceTemplate {...commonProps} />}
+        {selectedTemplate === 'compact' && <CompactTemplate {...commonProps} />}
       </div>
       
     </div>
