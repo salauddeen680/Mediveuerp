@@ -7,18 +7,20 @@ const Card = ({ children, className = '' }) => (
   </div>
 );
 
-// 🔥 1. UPDATE: Yahan 'onOpenBill' add kiya gaya hai
 export default function Reports({ data, onOpenBill }) {
-  // Total Revenue Calculation (NaN error fix ke sath)
-  const totalSales = data.bills.reduce((sum, b) => {
-    const amount = b.totals?.grandTotal || b.total || 0;
+  // 🔥 CRASH PREVENTION: Agar data.bills nahi hai toh khali array le lo
+  const billsArray = data?.bills || [];
+
+  // Total Revenue Calculation (Safe way)
+  const totalSales = billsArray.reduce((sum, b) => {
+    const amount = b?.totals?.grandTotal || b?.total || 0;
     return sum + Number(amount);
   }, 0);
 
-  // Naye bills sabse upar dikhane ke liye Sorting
-  const sortedBills = [...data.bills].sort((a, b) => {
-    const timeA = a.createdAt?.seconds || 0;
-    const timeB = b.createdAt?.seconds || 0;
+  // Naye bills sabse upar dikhane ke liye Sorting (Safe date reading)
+  const sortedBills = [...billsArray].sort((a, b) => {
+    const timeA = a.createdAt?.seconds || (typeof a.createdAt === 'number' ? a.createdAt / 1000 : 0);
+    const timeB = b.createdAt?.seconds || (typeof b.createdAt === 'number' ? b.createdAt / 1000 : 0);
     return timeB - timeA;
   });
 
@@ -34,7 +36,7 @@ export default function Reports({ data, onOpenBill }) {
         </Card>
         <Card className="border-t-4 border-t-blue-500">
           <h3 className="text-slate-400 text-sm">Total Invoices Generated</h3>
-          <div className="text-3xl font-bold text-white mt-2">{data.bills.length}</div>
+          <div className="text-3xl font-bold text-white mt-2">{billsArray.length}</div>
         </Card>
       </div>
 
@@ -55,37 +57,51 @@ export default function Reports({ data, onOpenBill }) {
               </tr>
             </thead>
             <tbody>
-              {sortedBills.map((bill, i) => {
-                const dateObj = bill.createdAt?.seconds ? new Date(bill.createdAt.seconds * 1000) : new Date();
-                const dateStr = dateObj.toLocaleDateString('en-IN');
-                const timeStr = dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-                
-                const amount = bill.totals?.grandTotal || bill.total || 0;
-                const partyName = bill.buyerDetails?.name || bill.customerName || 'Unknown Party';
-                const invNo = bill.invoiceDetails?.invoiceNumber || `INV-${i+1}`;
+              {sortedBills.length > 0 ? (
+                sortedBills.map((bill, i) => {
+                  // Safe Date Parsing
+                  let dateObj = new Date();
+                  if (bill.createdAt?.seconds) {
+                    dateObj = new Date(bill.createdAt.seconds * 1000);
+                  } else if (typeof bill.createdAt === 'number') {
+                    dateObj = new Date(bill.createdAt);
+                  }
+                  
+                  const dateStr = dateObj.toLocaleDateString('en-IN');
+                  const timeStr = dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                  
+                  const amount = bill.totals?.grandTotal || bill.total || 0;
+                  const partyName = bill.buyerDetails?.name || bill.customerName || 'Unknown Party';
+                  const invNo = bill.invoiceDetails?.invoiceNumber || `INV-${i+1}`;
 
-                return (
-                  <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800 transition-colors">
-                    <td className="p-4 text-slate-300">
-                      <div className="font-medium">{dateStr}</div>
-                      <div className="text-xs text-slate-500">{timeStr}</div>
-                    </td>
-                    <td className="p-4 text-teal-400 font-medium">{invNo}</td>
-                    <td className="p-4 text-white uppercase">{partyName}</td>
-                    <td className="p-4 font-bold text-green-400">₹{Number(amount).toFixed(2)}</td>
-                    <td className="p-4 text-center">
-                      {/* 🔥 2. UPDATE: Yahan alert hata kar asli function lagaya hai */}
-                      <button 
-                        onClick={() => onOpenBill(bill)}
-                        className="text-blue-400 hover:text-white text-xs bg-blue-500/10 hover:bg-blue-500/30 px-3 py-1.5 rounded-md border border-blue-500/20 transition-all cursor-pointer"
-                      >
-                        Open Bill
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-              {sortedBills.length === 0 && (
+                  return (
+                    <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800 transition-colors">
+                      <td className="p-4 text-slate-300">
+                        <div className="font-medium">{dateStr}</div>
+                        <div className="text-xs text-slate-500">{timeStr}</div>
+                      </td>
+                      <td className="p-4 text-teal-400 font-medium">{invNo}</td>
+                      <td className="p-4 text-white uppercase">{partyName}</td>
+                      <td className="p-4 font-bold text-green-400">₹{Number(amount).toFixed(2)}</td>
+                      <td className="p-4 text-center">
+                        {/* 🔥 FULLY SAFE BUTTON */}
+                        <button 
+                          onClick={() => {
+                            if(onOpenBill) {
+                              onOpenBill(bill);
+                            } else {
+                              console.warn("onOpenBill function is not passed to Reports component");
+                            }
+                          }}
+                          className="text-blue-400 hover:text-white text-xs bg-blue-500/10 hover:bg-blue-500/30 px-3 py-1.5 rounded-md border border-blue-500/20 transition-all cursor-pointer"
+                        >
+                          Open Bill
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
+              ) : (
                 <tr>
                   <td colSpan="5" className="text-center py-10 text-slate-500">
                     No invoices generated yet.
