@@ -23,6 +23,9 @@ import AdminPanel from './components/AdminPanel';
 import Reports from './components/Reports';
 import SubscriptionPlans from './components/SubscriptionPlans'; 
 
+// 🔥 AAPKI NAYI UTILS FILE IMPORT HO RAHI HAI
+import { generateZipBackup } from './utils/backupExporter';
+
 // Logo
 import logo from './logo.png';
 
@@ -194,7 +197,6 @@ export default function App() {
     );
   }
 
-  // 🔥 100% FAIL-PROOF TIMER FIX: Agar database me time na ho, to Firebase Metadata (original creation time) utha lega!
   const fallbackCreationTime = user?.metadata?.creationTime 
     ? new Date(user.metadata.creationTime).getTime() 
     : Date.now();
@@ -664,7 +666,6 @@ function TenantDashboardView({ data, navigate }) {
   );
 }
 
-// 🔥 MOBILE TABLE FIXES APPLIED (overflow-x-auto with min-w)
 function TenantMedicinesView({ data, showToast, user }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState({ name: '', batch: 'B101', expiry: '12/26', hsn: '3004', stock: 50, mrp: 100, gst: 12 });
@@ -714,7 +715,6 @@ function TenantMedicinesView({ data, showToast, user }) {
   );
 }
 
-// 🔥 MOBILE TABLE FIXES APPLIED & UNIQUE CUSTOMERS
 function TenantCustomersView({ data }) {
   const customerMap = new Map();
   if (data?.bills) {
@@ -759,6 +759,7 @@ function TenantCustomersView({ data }) {
   );
 }
 
+// 🔥 SETTINGS VIEW UPDATED WITH ZIP EXPORT AND RESTORE
 function TenantSettingsView({ data, showToast, user }) {
   const [formData, setFormData] = useState({
     storeName: data.settings?.general?.storeName || 'PHARMA WHOLESALE',
@@ -780,23 +781,73 @@ function TenantSettingsView({ data, showToast, user }) {
     }
   };
 
-  const handleExportBackup = () => {
-    const backupData = {
-      settings: data.settings,
-      medicines: data.medicines,
-      bills: data.bills,
-      customers: data.customers,
-      suppliers: data.suppliers,
-      exportDate: new Date().toISOString()
+  // 🔥 NAYA EXPORT FUNCTION (ZIP)
+  const handleExportBackup = async () => {
+    try {
+      showToast('Preparing backup files...', 'success');
+      
+      const backupData = {
+        settings: data.settings,
+        medicines: data.medicines,
+        bills: data.bills,
+        customers: data.customers,
+        suppliers: data.suppliers,
+        exportDate: new Date().toISOString()
+      };
+
+      // utils folder se import kiya gaya function call
+      await generateZipBackup(backupData, formData.storeName);
+      showToast('Backup Zip Downloaded Successfully!');
+    } catch (error) {
+      showToast('Error creating backup! Check if jszip is installed.', 'error');
+    }
+  };
+
+  // 🔥 NAYA IMPORT / RESTORE FUNCTION (JSON File)
+  const handleImportBackup = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        
+        if (!importedData.exportDate) {
+          showToast('Invalid backup file! Please select a valid JSON backup.', 'error');
+          return;
+        }
+
+        showToast('Restoring data... Please wait.');
+
+        // Restore Medicines
+        if (importedData.medicines && importedData.medicines.length > 0) {
+          for (const med of importedData.medicines) {
+            const { id, ...medData } = med;
+            await addDoc(collection(db, 'users', user.uid, 'medicines'), medData);
+          }
+        }
+        
+        // Restore Bills
+        if (importedData.bills && importedData.bills.length > 0) {
+          for (const bill of importedData.bills) {
+            const { id, ...billData } = bill;
+            await addDoc(collection(db, 'users', user.uid, 'bills'), billData);
+          }
+        }
+
+        // Restore Settings
+        if (importedData.settings && importedData.settings.general) {
+          await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), importedData.settings.general, { merge: true });
+        }
+
+        showToast('Backup Restored Successfully!', 'success');
+        e.target.value = null; // Input reset 
+      } catch (err) {
+        showToast('Error restoring backup. File might be corrupted.', 'error');
+      }
     };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `mediveu_erp_backup_${user.uid.slice(0,6)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    showToast('Backup exported successfully!');
+    reader.readAsText(file);
   };
 
   return (
@@ -812,12 +863,32 @@ function TenantSettingsView({ data, showToast, user }) {
           <div className="flex justify-end pt-4"><Button type="submit" className="w-full sm:w-auto">Save Settings</Button></div>
         </form>
       </Card>
+      
       <Card className="border-teal-500/30">
-        <h3 className="text-lg md:text-xl font-bold text-white mb-2">Data Backup & Export</h3>
-        <p className="text-slate-400 text-sm mb-4">Download a complete JSON backup of your store inventory, bills, customers, and settings for safe keeping.</p>
-        <Button onClick={handleExportBackup} variant="secondary" className="gap-2 w-full sm:w-auto">
-          <Download size={18} /> Download Store Backup (.json)
-        </Button>
+        <h3 className="text-lg md:text-xl font-bold text-white mb-2">Data Backup & Restore</h3>
+        <p className="text-slate-400 text-sm mb-4">
+          Download a complete ZIP folder of your store, or restore from a JSON backup file.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Button onClick={handleExportBackup} variant="secondary" className="gap-2 w-full sm:w-auto">
+            <Download size={18} /> Download Backup (.zip)
+          </Button>
+
+          {/* UPLOAD BUTTON FOR RESTORE */}
+          <div className="relative w-full sm:w-auto">
+            <input 
+              type="file" 
+              accept=".json" 
+              onChange={handleImportBackup} 
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              title="Upload Backup File"
+            />
+            <Button variant="primary" className="gap-2 w-full pointer-events-none">
+              <Upload size={18} /> Restore Backup
+            </Button>
+          </div>
+        </div>
       </Card>
     </div>
   );
