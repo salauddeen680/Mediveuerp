@@ -35,7 +35,15 @@ export default function BillingPOS({ data, user, showToast }) {
   const isLocked = userStatus === 'Suspended' || isPlanExpired;
 
   // TEMPLATE SELECTION STATE
-  const [selectedTemplate, setSelectedTemplate] = useState('classic');
+  // 🔥 Default ko data se check kar rahe hain 🔥
+  const [selectedTemplate, setSelectedTemplate] = useState(data?.templateName || 'classic');
+
+  // 🔥 NAYA EFFECT: Agar Report se purana bill khulta hai toh template change ho jayega 🔥
+  useEffect(() => {
+    if (data?.templateName) {
+      setSelectedTemplate(data.templateName);
+    }
+  }, [data]);
 
   // STORE SETTINGS
   const storeSettings = data?.settings?.general || {
@@ -133,7 +141,15 @@ export default function BillingPOS({ data, user, showToast }) {
     setIsProcessing(true);
     try {
       await addDoc(collection(db, 'users', user.uid, 'bills'), {
-        invoiceDetails, buyerDetails, bankDetails, amountInWords, terms, items, totals, createdAt: serverTimestamp()
+        invoiceDetails, 
+        buyerDetails, 
+        bankDetails, 
+        amountInWords, 
+        terms, 
+        items, 
+        totals, 
+        templateName: selectedTemplate, // 🔥 YAHAN TEMPLATE KA NAAM SAVE HO RAHA HAI 🔥
+        createdAt: serverTimestamp()
       });
       showToast('Invoice Saved Successfully!');
     } catch (error) {
@@ -156,13 +172,13 @@ export default function BillingPOS({ data, user, showToast }) {
     );
   }
 
-  // COMMON PROPS OBJECT (Taaki baar-baar same code na likhna pade)
+  // COMMON PROPS OBJECT
   const commonProps = {
     logo, storeSettings,
     invoiceDetails, setInvoiceDetails,
     buyerDetails, setBuyerDetails,
     bankDetails, setBankDetails,
-    amountInWords, setAmountInWords, // Sabme bhej dete hain, agar zarurat ho
+    amountInWords, setAmountInWords,
     terms, setTerms,
     items, handleItemChange, addRow, removeRow,
     totals
@@ -205,7 +221,7 @@ export default function BillingPOS({ data, user, showToast }) {
         </button>
       </div>
 
-      {/* INVOICE RENDER AREA (Ab sabme Common Props ja rahe hain) */}
+      {/* INVOICE RENDER AREA */}
       <div className="w-full">
         {selectedTemplate === 'classic' && <ClassicTemplate {...commonProps} />}
         {selectedTemplate === 'modern' && <ModernTemplate {...commonProps} />}
