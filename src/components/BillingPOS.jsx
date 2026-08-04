@@ -4,12 +4,12 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Save, Lock, ShieldAlert, LayoutTemplate } from 'lucide-react';
 import logo from '../logo.png';
 
-// 🔥 SARE 5 TEMPLATES IMPORT KAR LIYE 🔥
-import ClassicTemplate from './Invoices/ClassicTemplate';
-import ModernTemplate from './Invoices/ModernTemplate';
-import CorporateTemplate from './Invoices/CorporateTemplate';
-import ServiceTemplate from './Invoices/ServiceTemplate';
-import CompactTemplate from './Invoices/CompactTemplate';
+// 🔥 SARE 5 TEMPLATES IMPORT KAR LIYE (WITH .jsx EXTENSION) 🔥
+import ClassicTemplate from './Invoices/ClassicTemplate.jsx';
+import ModernTemplate from './Invoices/ModernTemplate.jsx';
+import CorporateTemplate from './Invoices/CorporateTemplate.jsx';
+import ServiceTemplate from './Invoices/ServiceTemplate.jsx';
+import CompactTemplate from './Invoices/CompactTemplate.jsx';
 
 export default function BillingPOS({ data, user, showToast }) {
   // SAAS ACCESS CONTROL & SMART COUNTDOWN LOGIC
