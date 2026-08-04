@@ -13,21 +13,20 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
-  sendPasswordResetEmail // 🔥 FORGOT PASSWORD LOGIC IMPORTED
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { collection, doc, setDoc, getDocs, onSnapshot, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 
-// Aapke components import ho rahe hain
+// Components
 import BillingPOS from './components/BillingPOS';
 import AdminPanel from './components/AdminPanel';
 import Reports from './components/Reports';
 import SubscriptionPlans from './components/SubscriptionPlans'; 
 
-// 🔥 AAPKA NAYA LOGO IMPORT HO RAHA HAI
+// Logo
 import logo from './logo.png';
 
 // --- UTILITY COMPONENTS ---
-
 const Button = ({ children, variant = 'primary', className = '', ...props }) => {
   const baseStyle = "px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer";
   const variants = {
@@ -54,7 +53,7 @@ const Input = ({ label, className = '', ...props }) => (
 );
 
 const Card = ({ children, className = '' }) => (
-  <div className={`bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 shadow-xl ${className}`}>
+  <div className={`bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-6 shadow-xl overflow-hidden ${className}`}>
     {children}
   </div>
 );
@@ -96,7 +95,6 @@ const Toast = ({ message, type = 'success', onClose }) => {
   );
 };
 
-// --- FOOTER COMPONENT ---
 const Footer = () => (
   <footer className="bg-slate-950 border-t border-slate-900 py-8 text-center text-sm text-slate-400 space-y-2 mt-auto">
     <p>© 2026 CCU Studios MEDIVEU ERP. All rights reserved.</p>
@@ -105,7 +103,6 @@ const Footer = () => (
 );
 
 // --- MAIN APP COMPONENT ---
-
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -118,7 +115,7 @@ export default function App() {
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [settings, setSettings] = useState({});
-  const [userData, setUserData] = useState({}); 
+  const [userData, setUserData] = useState(null); 
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -134,20 +131,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => { if (authLoading) setAuthLoading(false); }, 3000);
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      clearTimeout(timer);
       setUser(currentUser);
       if (currentUser && currentView !== 'admin' && window.location.pathname !== '/admin' && window.location.hash !== '#admin') {
         setCurrentView('tenant');
         setCurrentPath('dashboard');
       }
-      setAuthLoading(false);
-    }, (error) => {
-      clearTimeout(timer);
-      setAuthLoading(false);
+      if (!currentUser) setAuthLoading(false);
     });
-    return () => { clearTimeout(timer); unsubscribe(); };
+    return () => unsubscribe();
   }, [currentView]);
 
   useEffect(() => {
@@ -156,7 +148,10 @@ export default function App() {
     const unsubUser = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
       if (docSnap.exists()) {
         setUserData(docSnap.data());
+      } else {
+        setUserData({}); 
       }
+      setAuthLoading(false);
     });
 
     const unsubs = [
@@ -190,7 +185,7 @@ export default function App() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || (user && currentView === 'tenant' && userData === null)) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-teal-400 gap-4">
         <Activity className="animate-spin" size={48} />
@@ -198,6 +193,11 @@ export default function App() {
       </div>
     );
   }
+
+  // 🔥 100% FAIL-PROOF TIMER FIX: Agar database me time na ho, to Firebase Metadata (original creation time) utha lega!
+  const fallbackCreationTime = user?.metadata?.creationTime 
+    ? new Date(user.metadata.creationTime).getTime() 
+    : Date.now();
 
   const combinedTenantData = {
     medicines,
@@ -207,7 +207,8 @@ export default function App() {
     settings,
     plan: userData?.plan || '7 Days Free Trial',
     status: userData?.status || 'Active',
-    createdAt: userData?.createdAt || Date.now()
+    createdAt: userData?.createdAt || fallbackCreationTime, 
+    templateName: userData?.templateName || 'classic'
   };
 
   return (
@@ -249,8 +250,6 @@ function PublicWebsite({ navigate, showToast }) {
     <div className="flex flex-col min-h-screen bg-slate-950">
       <nav className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center h-20">
-          
-          {/* 🔥 MAIN BRANDING LOGO PLACEMENT HERE */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab('home')}>
             <img src={logo} alt="Mediveu Logo" className="h-10 w-auto object-contain drop-shadow-md rounded-md" />
             <span className="text-2xl font-bold text-white tracking-wide">MEDIVEU <span className="text-teal-400">ERP</span></span>
@@ -301,9 +300,7 @@ const FeaturesView = () => (
 const PricingView = ({ setActiveTab, showToast }) => {
   const handleRazorpayCheckout = (planName, amount) => {
     showToast(`Redirecting to Razorpay secure checkout for ${planName} (₹${amount})...`);
-    setTimeout(() => {
-      setActiveTab('register');
-    }, 1500);
+    setTimeout(() => setActiveTab('register'), 1500);
   };
 
   return (
@@ -355,32 +352,23 @@ const ContactView = () => (
   </div>
 );
 
-// 🔥 LOGIN VIEW UPDATED WITH FORGOT PASSWORD LOGIC 🔥
 const LoginView = ({ navigate, showToast, setActiveTab }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // Forgot Password States
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
 
   const handlePasswordReset = async (e) => {
     e.preventDefault();
-    if (!resetEmail) {
-      showToast('Please enter your email', 'error');
-      return;
-    }
+    if (!resetEmail) return showToast('Please enter your email', 'error');
     try {
       await sendPasswordResetEmail(auth, resetEmail);
       showToast('Password reset link sent! Please check your email inbox.');
       setIsForgotModalOpen(false);
       setResetEmail('');
     } catch (err) {
-      if (err.code === 'auth/user-not-found') {
-        showToast('No account found with this email.', 'error');
-      } else {
-        showToast(err.message.replace('Firebase:', ''), 'error');
-      }
+      if (err.code === 'auth/user-not-found') showToast('No account found with this email.', 'error');
+      else showToast(err.message.replace('Firebase:', ''), 'error');
     }
   };
 
@@ -398,26 +386,17 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
             showToast('Logged in successfully!'); 
             navigate('tenant', 'dashboard'); 
           } catch(err){ 
-            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
-              showToast('Invalid Email or Password!', 'error');
-            } else {
-              showToast(err.message.replace('Firebase:', ''), 'error'); 
-            }
+            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') showToast('Invalid Email or Password!', 'error');
+            else showToast(err.message.replace('Firebase:', ''), 'error'); 
           } 
         }} className="space-y-4">
           <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
           <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-          
           <div className="flex justify-end">
-            <button 
-              type="button" 
-              onClick={() => setIsForgotModalOpen(true)} 
-              className="text-sm text-teal-400 hover:text-teal-300 transition-colors"
-            >
+            <button type="button" onClick={() => setIsForgotModalOpen(true)} className="text-sm text-teal-400 hover:text-teal-300 transition-colors">
               Forgot Password?
             </button>
           </div>
-
           <Button type="submit" className="w-full">Login</Button>
         </form>
         <div className="mt-4 text-center text-sm text-slate-400">
@@ -425,24 +404,13 @@ const LoginView = ({ navigate, showToast, setActiveTab }) => {
         </div>
       </Card>
 
-      {/* Forgot Password Modal */}
       <Modal isOpen={isForgotModalOpen} onClose={() => setIsForgotModalOpen(false)} title="Reset Password">
         <form onSubmit={handlePasswordReset} className="space-y-4">
-          <p className="text-slate-300 text-sm">
-            Enter your registered email address below. We will send you a secure link to reset your password.
-          </p>
-          <Input 
-            label="Email Address" 
-            type="email" 
-            value={resetEmail} 
-            onChange={e => setResetEmail(e.target.value)} 
-            placeholder="e.g. store@example.com"
-            required 
-          />
+          <p className="text-slate-300 text-sm">Enter your registered email address below. We will send you a secure link to reset your password.</p>
+          <Input label="Email Address" type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)} required />
           <Button type="submit" className="w-full mt-2">Send Reset Link</Button>
         </form>
       </Modal>
-
     </div>
   );
 };
@@ -470,22 +438,15 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
 
             await setDoc(doc(db, 'users', res.user.uid, 'settings', 'general'), { 
               storeName: storeName || 'Pharma Wholesale', 
-              phone: '',
-              address: '',
-              gstin: '',
-              dlNumber: ''
+              phone: '', address: '', gstin: '', dlNumber: ''
             }); 
             
             showToast('Account Created Successfully!'); 
             navigate('tenant', 'dashboard'); 
           } catch(err){ 
-            if (err.code === 'auth/email-already-in-use') {
-              showToast('This Email is already registered! Please Login.', 'error');
-            } else if (err.code === 'auth/weak-password') {
-              showToast('Password must be at least 6 characters.', 'error');
-            } else {
-              showToast(err.message.replace('Firebase:', ''), 'error'); 
-            }
+            if (err.code === 'auth/email-already-in-use') showToast('This Email is already registered! Please Login.', 'error');
+            else if (err.code === 'auth/weak-password') showToast('Password must be at least 6 characters.', 'error');
+            else showToast(err.message.replace('Firebase:', ''), 'error'); 
           } 
         }} className="space-y-4">
           <Input label="Store Name" value={storeName} onChange={e => setStoreName(e.target.value)} required />
@@ -499,11 +460,11 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
 };
 
 // ==========================================
-// TENANT DASHBOARD & VIEWS (🔥 WITH RESPONSIVE FIXES)
+// TENANT DASHBOARD
 // ==========================================
 function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout, data }) {
   const [billToEdit, setBillToEdit] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Mobile sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
@@ -521,38 +482,26 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
       case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} editBill={billToEdit} setBillToEdit={setBillToEdit} />;
       case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
       case 'customers': return <TenantCustomersView data={data} />;
-      
-      case 'reports': return <Reports data={data} onOpenBill={(bill) => {
-        setBillToEdit(bill);
-        navigate('tenant', 'billing');
-      }} />;
-      
+      case 'reports': return <Reports data={data} onOpenBill={(bill) => { setBillToEdit(bill); navigate('tenant', 'billing'); }} />;
       case 'subscription': return <SubscriptionPlans user={user} showToast={showToast} navigate={navigate} />;
-      
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
       default: return <TenantDashboardView data={data} navigate={navigate} />;
     }
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden relative">
-      
-      {/* 🔥 Mobile Sidebar Overlay (Toggles sidebar close) */}
+    <div className="flex h-screen bg-slate-950 overflow-hidden relative w-full">
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-30 md:hidden" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/60 z-30 md:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* 🔥 Responsive Sidebar & LOGO FIX */}
       <aside className={`fixed md:static inset-y-0 left-0 z-40 w-64 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out bg-slate-900 border-r border-slate-800 flex flex-col`}>
         <div className="h-16 px-4 border-b border-slate-800 flex items-center justify-between font-bold text-white">
           <div className="flex items-center gap-2">
             <img src={logo} alt="Dashboard Logo" className="h-8 w-auto object-contain rounded" />
             <span className="tracking-wide">MEDIVEU ERP</span>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white p-1">
             <X size={24} />
           </button>
         </div>
@@ -563,7 +512,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
               onClick={() => {
                 if (item.id === 'billing') setBillToEdit(null);
                 navigate('tenant', item.id);
-                setIsSidebarOpen(false); // Auto close menu on mobile after click
+                setIsSidebarOpen(false);
               }} 
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer ${currentPath === item.id ? 'bg-teal-500/10 text-teal-400' : 'text-slate-300 hover:bg-slate-800'}`}
             >
@@ -576,11 +525,9 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* 🔥 Header bar gets the toggle functionality */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-950">
         <HeaderTimerBar data={data} navigate={navigate} onMenuToggle={() => setIsSidebarOpen(true)} />
-
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-950 w-full">{renderContent()}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 w-full">{renderContent()}</main>
         <Footer />
       </div>
     </div>
@@ -588,7 +535,7 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
 }
 
 // ==========================================
-// CENTRALIZED TIME CALCULATOR HOOK
+// TIME CALCULATOR HOOK
 // ==========================================
 function useSubscriptionTimer(data) {
   const userPlan = data?.plan || '7 Days Free Trial';
@@ -602,22 +549,13 @@ function useSubscriptionTimer(data) {
   let totalPlanDays = 7;
   const planString = String(userPlan).toLowerCase();
 
-  if (planString.includes('7 days') || planString.includes('trial')) {
-    totalPlanDays = 7;
-  } else if (planString.includes('monthly') || planString.includes('249') || planString.includes('month')) {
-    totalPlanDays = 30;
-  } else if (planString.includes('yearly') || planString.includes('2799') || planString.includes('year')) {
-    totalPlanDays = 365;
-  } else if (planString.includes('lifetime') || planString.includes('unlimited')) {
-    totalPlanDays = 36500;
-  }
+  if (planString.includes('7 days') || planString.includes('trial')) totalPlanDays = 7;
+  else if (planString.includes('monthly') || planString.includes('249') || planString.includes('month')) totalPlanDays = 30;
+  else if (planString.includes('yearly') || planString.includes('2799') || planString.includes('year')) totalPlanDays = 365;
+  else if (planString.includes('lifetime') || planString.includes('unlimited')) totalPlanDays = 36500;
 
   const expiryTimestamp = createdAt + (totalPlanDays * 24 * 60 * 60 * 1000);
-  const expiryDateString = new Date(expiryTimestamp).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  });
+  const expiryDateString = new Date(expiryTimestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: false });
 
@@ -625,7 +563,6 @@ function useSubscriptionTimer(data) {
     const calculateTime = () => {
       const now = Date.now();
       const difference = expiryTimestamp - now;
-
       if (difference <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true });
       } else {
@@ -636,7 +573,6 @@ function useSubscriptionTimer(data) {
         setTimeLeft({ days, hours, minutes, seconds, isExpired: false });
       }
     };
-
     calculateTime();
     const timer = setInterval(calculateTime, 1000);
     return () => clearInterval(timer);
@@ -645,20 +581,10 @@ function useSubscriptionTimer(data) {
   return { userPlan, userStatus, expiryDateString, timeLeft, isUrgent: timeLeft.days <= 3 };
 }
 
-// ==========================================
-// HEADER LIVE TOP BAR COMPONENT (🔥 RESPONSIVE FIXED)
-// ==========================================
 function HeaderTimerBar({ data, navigate, onMenuToggle }) {
   const { userPlan, timeLeft, isUrgent } = useSubscriptionTimer(data);
-
   return (
-    <div className={`border-b px-4 md:px-6 py-2.5 flex flex-wrap md:flex-row justify-between items-center shadow-md gap-3 md:gap-2 transition-colors w-full ${
-      isUrgent || timeLeft.isExpired 
-        ? 'bg-red-950/40 border-red-500/40' 
-        : 'bg-slate-900 border-slate-800'
-    }`}>
-      
-      {/* Mobile Hamburger & Active Plan details */}
+    <div className={`border-b px-4 md:px-6 py-2.5 flex flex-wrap md:flex-row justify-between items-center shadow-md gap-3 md:gap-2 transition-colors w-full ${isUrgent || timeLeft.isExpired ? 'bg-red-950/40 border-red-500/40' : 'bg-slate-900 border-slate-800'}`}>
       <div className="flex items-center gap-3 w-full md:w-auto">
         <button onClick={onMenuToggle} className="md:hidden text-slate-300 hover:text-white p-1 -ml-2">
           <Menu size={24} />
@@ -671,27 +597,11 @@ function HeaderTimerBar({ data, navigate, onMenuToggle }) {
           Active Plan: <span className="text-white font-semibold ml-1">{userPlan}</span>
         </span>
       </div>
-
-      {/* Timer and Upgrade button */}
       <div className="flex items-center justify-between md:justify-end gap-3 w-full md:w-auto">
-        <div className={`text-xs font-bold px-3 py-1.5 rounded-lg border font-mono whitespace-nowrap ${
-          isUrgent || timeLeft.isExpired 
-            ? 'bg-red-500/20 border-red-500/40 text-red-300 animate-pulse' 
-            : 'bg-slate-950/80 border-slate-700/60 text-teal-400'
-        }`}>
-          {timeLeft.isExpired ? (
-            <span>EXPIRED</span>
-          ) : (
-            <span>
-              ⏳ {timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m left
-            </span>
-          )}
+        <div className={`text-xs font-bold px-3 py-1.5 rounded-lg border font-mono whitespace-nowrap ${isUrgent || timeLeft.isExpired ? 'bg-red-500/20 border-red-500/40 text-red-300 animate-pulse' : 'bg-slate-950/80 border-slate-700/60 text-teal-400'}`}>
+          {timeLeft.isExpired ? <span>EXPIRED</span> : <span>⏳ {timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m left</span>}
         </div>
-
-        <button 
-          onClick={() => navigate && navigate('tenant', 'subscription')}
-          className="text-xs bg-teal-500 hover:bg-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm whitespace-nowrap"
-        >
+        <button onClick={() => navigate && navigate('tenant', 'subscription')} className="text-xs bg-teal-500 hover:bg-teal-600 text-white font-semibold px-4 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm whitespace-nowrap">
           Upgrade
         </button>
       </div>
@@ -699,102 +609,51 @@ function HeaderTimerBar({ data, navigate, onMenuToggle }) {
   );
 }
 
-// ==========================================
-// DASHBOARD SUBSCRIPTION CARD COMPONENT
-// ==========================================
 function PlanStatusCard({ data, navigate }) {
   const { userPlan, userStatus, expiryDateString, timeLeft, isUrgent } = useSubscriptionTimer(data);
-
   return (
-    <div className={`border rounded-2xl p-4 md:p-6 shadow-2xl mb-6 relative overflow-hidden transition-all duration-300 w-full ${
-      isUrgent || timeLeft.isExpired 
-        ? 'bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border-red-500/50 shadow-red-500/10' 
-        : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700/80 shadow-teal-500/5'
-    }`}>
-      <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-3xl pointer-events-none ${
-        isUrgent || timeLeft.isExpired ? 'bg-red-500/20' : 'bg-teal-500/10'
-      }`}></div>
-
+    <div className={`border rounded-2xl p-4 md:p-6 shadow-2xl mb-6 relative overflow-hidden transition-all duration-300 w-full ${isUrgent || timeLeft.isExpired ? 'bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border-red-500/50 shadow-red-500/10' : 'bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700/80 shadow-teal-500/5'}`}>
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 relative z-10">
-        
-        {/* Left Side: Icon & Plan Details */}
         <div className="flex flex-col sm:flex-row items-start gap-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-            isUrgent || timeLeft.isExpired ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-teal-500/20 text-teal-400 border border-teal-500/30'
-          }`}>
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isUrgent || timeLeft.isExpired ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-teal-500/20 text-teal-400 border border-teal-500/30'}`}>
             {isUrgent || timeLeft.isExpired ? <AlertTriangle size={24} className="animate-bounce" /> : <ShieldCheck size={24} />}
           </div>
-          
           <div>
             <div className="flex items-center flex-wrap gap-2">
               <span className="text-xs font-semibold tracking-wider uppercase text-slate-400">Current Subscription</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                userStatus === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
-              }`}>
-                {userStatus}
-              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${userStatus === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>{userStatus}</span>
             </div>
             <h2 className="text-xl md:text-2xl font-bold text-white mt-1 break-words">{userPlan}</h2>
-            <p className="text-xs md:text-sm text-slate-400 mt-0.5">
-              Valid up to: <span className="text-slate-200 font-medium">{expiryDateString}</span>
-            </p>
+            <p className="text-xs md:text-sm text-slate-400 mt-0.5">Valid up to: <span className="text-slate-200 font-medium">{expiryDateString}</span></p>
           </div>
         </div>
-
-        {/* Right Side: Live Countdown Timer & Upgrade Button */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full xl:w-auto">
-          
-          {/* Live Countdown Box */}
-          <div className={`px-4 py-3 rounded-xl border flex items-center gap-3 w-full sm:w-auto ${
-            isUrgent || timeLeft.isExpired 
-              ? 'bg-red-500/15 border-red-500/40 text-red-200 shadow-lg shadow-red-500/10' 
-              : 'bg-slate-950/60 border-slate-700/60 text-slate-200'
-          }`}>
+          <div className={`px-4 py-3 rounded-xl border flex items-center gap-3 w-full sm:w-auto ${isUrgent || timeLeft.isExpired ? 'bg-red-500/15 border-red-500/40 text-red-200 shadow-lg shadow-red-500/10' : 'bg-slate-950/60 border-slate-700/60 text-slate-200'}`}>
             <Clock size={20} className={`shrink-0 ${isUrgent ? 'text-red-400 animate-pulse' : 'text-teal-400'}`} />
             <div>
               <div className="text-[10px] uppercase font-bold text-slate-400">Time Remaining</div>
               <div className="text-sm md:text-base font-extrabold tracking-wide">
-                {timeLeft.isExpired ? (
-                  <span className="text-red-400 font-bold">Plan Expired!</span>
-                ) : (
-                  <span className="font-mono">
-                    {timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
-                  </span>
-                )}
+                {timeLeft.isExpired ? <span className="text-red-400 font-bold">Plan Expired!</span> : <span className="font-mono">{timeLeft.days}d : {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s</span>}
               </div>
             </div>
           </div>
-
-          {/* Upgrade Button */}
-          <button 
-            onClick={() => navigate && navigate('tenant', 'subscription')}
-            className={`font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto whitespace-nowrap ${
-              isUrgent || timeLeft.isExpired
-                ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-red-600/30 animate-pulse'
-                : 'bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-teal-500/20'
-            }`}
-          >
+          <button onClick={() => navigate && navigate('tenant', 'subscription')} className={`font-bold px-5 py-3 rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto whitespace-nowrap ${isUrgent || timeLeft.isExpired ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-red-600/30 animate-pulse' : 'bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-teal-500/20'}`}>
             Upgrade Plan <ArrowRight size={16} />
           </button>
         </div>
-
       </div>
     </div>
   );
 }
 
 function TenantDashboardView({ data, navigate }) {
-  const { medicines, bills } = data;
-  
-  const totalSales = bills.reduce((acc, b) => {
-    const amount = b.totals?.grandTotal || b.total || 0;
-    return acc + Number(amount);
-  }, 0);
+  const medicines = data?.medicines || [];
+  const bills = data?.bills || [];
+  const totalSales = bills.reduce((acc, b) => acc + Number(b.totals?.grandTotal || b.total || 0), 0);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto w-full">
       <PlanStatusCard data={data} navigate={navigate} />
-
       <h1 className="text-xl md:text-2xl font-bold text-white">Dashboard Overview</h1>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
         <Card><div className="text-slate-400 text-sm">Total Revenue</div><div className="text-2xl md:text-3xl font-bold text-green-400 mt-1">₹{totalSales.toFixed(2)}</div></Card>
@@ -805,6 +664,7 @@ function TenantDashboardView({ data, navigate }) {
   );
 }
 
+// 🔥 MOBILE TABLE FIXES APPLIED (overflow-x-auto with min-w)
 function TenantMedicinesView({ data, showToast, user }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState({ name: '', batch: 'B101', expiry: '12/26', hsn: '3004', stock: 50, mrp: 100, gst: 12 });
@@ -821,18 +681,17 @@ function TenantMedicinesView({ data, showToast, user }) {
         <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">Add Medicine</Button>
       </div>
       <Card className="p-0 overflow-hidden">
-        {/* 🔥 overflow-x-auto for mobile tables */}
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-sm text-left whitespace-nowrap">
+        <div className="overflow-x-auto w-full rounded-xl">
+          <table className="w-full text-sm text-left whitespace-nowrap min-w-[600px]">
             <thead className="bg-slate-900 text-slate-400">
-              <tr><th className="p-3">Name</th><th className="p-3">Batch</th><th className="p-3">Expiry</th><th className="p-3">Stock</th><th className="p-3">MRP</th></tr>
+              <tr><th className="p-4">Name</th><th className="p-4">Batch</th><th className="p-4">Expiry</th><th className="p-4">Stock</th><th className="p-4">MRP</th></tr>
             </thead>
             <tbody>
-              {data.medicines.map(m => (
+              {data.medicines?.map(m => (
                 <tr key={m.id} className="border-b border-slate-800 hover:bg-slate-800/50">
-                  <td className="p-3 text-white font-medium">{m.name}</td>
-                  <td className="p-3">{m.batch}</td><td className="p-3">{m.expiry}</td>
-                  <td className="p-3">{m.stock}</td><td className="p-3">₹{m.mrp}</td>
+                  <td className="p-4 text-white font-medium">{m.name}</td>
+                  <td className="p-4">{m.batch}</td><td className="p-4">{m.expiry}</td>
+                  <td className="p-4">{m.stock}</td><td className="p-4">₹{m.mrp}</td>
                 </tr>
               ))}
             </tbody>
@@ -855,27 +714,42 @@ function TenantMedicinesView({ data, showToast, user }) {
   );
 }
 
+// 🔥 MOBILE TABLE FIXES APPLIED & UNIQUE CUSTOMERS
 function TenantCustomersView({ data }) {
+  const customerMap = new Map();
+  if (data?.bills) {
+    data.bills.forEach(b => {
+      const name = b.customerName || b.buyerDetails?.name || 'Unknown Party';
+      const gst = b.customerGstin || b.buyerDetails?.gstin || 'N/A';
+      const amount = Number(b.totals?.grandTotal || b.total || 0);
+      if (customerMap.has(name)) {
+        customerMap.set(name, { ...customerMap.get(name), total: customerMap.get(name).total + amount });
+      } else {
+        customerMap.set(name, { name, gst, total: amount });
+      }
+    });
+  }
+  const customerList = Array.from(customerMap.values());
+
   return (
     <div className="max-w-7xl mx-auto space-y-4 w-full">
       <h1 className="text-xl md:text-2xl font-bold text-white">Customers Directory</h1>
       <Card className="p-0 overflow-hidden">
-        {/* 🔥 overflow-x-auto for mobile tables */}
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-sm text-left whitespace-nowrap">
+        <div className="overflow-x-auto w-full rounded-xl">
+          <table className="w-full text-sm text-left whitespace-nowrap min-w-[500px]">
             <thead className="bg-slate-900 text-slate-400">
-              <tr><th className="p-3">Customer Name</th><th className="p-3">GSTIN</th><th className="p-3 text-right">Total Purchases</th></tr>
+              <tr><th className="p-4">Customer Name</th><th className="p-4">GSTIN</th><th className="p-4 text-right">Total Purchases</th></tr>
             </thead>
             <tbody>
-              {data.bills.map((b, i) => (
+              {customerList.map((c, i) => (
                 <tr key={i} className="border-b border-slate-800 hover:bg-slate-800/50">
-                  <td className="p-3 text-white font-medium">{b.customerName}</td>
-                  <td className="p-3 text-slate-300">{b.customerGstin || 'N/A'}</td>
-                  <td className="p-3 text-right text-teal-400">₹{Number(b.total).toFixed(2)}</td>
+                  <td className="p-4 text-white font-medium">{c.name}</td>
+                  <td className="p-4 text-slate-300">{c.gst}</td>
+                  <td className="p-4 text-right text-teal-400 font-bold">₹{c.total.toFixed(2)}</td>
                 </tr>
               ))}
-              {data.bills.length === 0 && (
-                <tr><td colSpan="3" className="text-center py-8 text-slate-500">No customer bills recorded yet.</td></tr>
+              {customerList.length === 0 && (
+                <tr><td colSpan="3" className="text-center py-8 text-slate-500">No customers found. Generate bills to add customers.</td></tr>
               )}
             </tbody>
           </table>
@@ -938,7 +812,6 @@ function TenantSettingsView({ data, showToast, user }) {
           <div className="flex justify-end pt-4"><Button type="submit" className="w-full sm:w-auto">Save Settings</Button></div>
         </form>
       </Card>
-
       <Card className="border-teal-500/30">
         <h3 className="text-lg md:text-xl font-bold text-white mb-2">Data Backup & Export</h3>
         <p className="text-slate-400 text-sm mb-4">Download a complete JSON backup of your store inventory, bills, customers, and settings for safe keeping.</p>
