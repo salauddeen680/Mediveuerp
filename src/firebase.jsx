@@ -2,17 +2,17 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore"; // Offline function add kiya
-import { getAuth } from "firebase/auth"; // Login ke liye
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore"; // Database aur offline mode ke liye
+import { getAuth } from "firebase/auth"; // Login/Auth ke liye
 
-// Your web app's Firebase configuration using Vite Environment Variables
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyDjmAHxhhEmIfpmMC-glskeSHNXuVXXlBU",
+  authDomain: "mediveuerp.firebaseapp.com",
+  projectId: "mediveuerp",
+  storageBucket: "mediveuerp.firebasestorage.app",
+  messagingSenderId: "203997741439",
+  appId: "1:203997741439:web:a44659832e6a107d80da4a"
 };
 
 // Initialize Firebase
