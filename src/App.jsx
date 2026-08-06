@@ -23,7 +23,7 @@ import AdminPanel from './components/AdminPanel';
 import Reports from './components/Reports';
 import SubscriptionPlans from './components/SubscriptionPlans'; 
 
-// 🔥 AAPKI NAYI UTILS FILE IMPORT HO RAHI HAI
+// Utils
 import { generateZipBackup } from './utils/backupExporter';
 
 // Logo
@@ -112,6 +112,9 @@ export default function App() {
   const [currentView, setCurrentView] = useState('public'); 
   const [currentPath, setCurrentPath] = useState('home');
   const [toast, setToast] = useState(null);
+  
+  // 🔥 ADMIN AUTHENTICATION STATE
+  const [isAdminAuth, setIsAdminAuth] = useState(false);
 
   const [medicines, setMedicines] = useState([]);
   const [bills, setBills] = useState([]);
@@ -124,8 +127,10 @@ export default function App() {
 
   useEffect(() => {
     const checkAdminRoute = () => {
-      if (window.location.pathname === '/admin' || window.location.hash === '#admin' || window.location.pathname.includes('admin')) {
+      const isAdmin = window.location.pathname.includes('/admin') || window.location.hash.includes('#admin');
+      if (isAdmin) {
         setCurrentView('admin');
+        setAuthLoading(false); 
       }
     };
     checkAdminRoute();
@@ -136,11 +141,17 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser && currentView !== 'admin' && window.location.pathname !== '/admin' && window.location.hash !== '#admin') {
+      
+      const isAdmin = window.location.pathname.includes('/admin') || window.location.hash.includes('#admin');
+      
+      if (currentUser && !isAdmin && currentView !== 'admin') {
         setCurrentView('tenant');
         setCurrentPath('dashboard');
       }
-      if (!currentUser) setAuthLoading(false);
+      
+      if (!currentUser || isAdmin) {
+        setAuthLoading(false);
+      }
     });
     return () => unsubscribe();
   }, [currentView]);
@@ -175,6 +186,13 @@ export default function App() {
   const navigate = (view, path) => {
     setCurrentView(view);
     setCurrentPath(path);
+    
+    if (view === 'admin') {
+      window.history.pushState({}, '', '/admin');
+    } else {
+      window.history.pushState({}, '', '/');
+      setIsAdminAuth(false); // Security: Reset admin auth if they leave the page
+    }
     window.scrollTo(0, 0);
   };
 
@@ -216,19 +234,103 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30 flex flex-col justify-between">
       {currentView === 'public' && <PublicWebsite navigate={navigate} showToast={showToast} />}
+      
       {currentView === 'tenant' && (
         <TenantDashboard 
           user={user} navigate={navigate} currentPath={currentPath} showToast={showToast} handleLogout={handleLogout}
           data={combinedTenantData}
         />
       )}
+      
+      {/* 🔥 ADMIN SECURITY CHECK (NEW LOGIN LAYER) */}
       {currentView === 'admin' && (
-        <AdminPanel navigate={navigate} />
+        isAdminAuth ? (
+          <AdminPanel navigate={navigate} />
+        ) : (
+          <AdminLoginView onLogin={setIsAdminAuth} navigate={navigate} />
+        )
       )}
+      
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }
+
+// ==========================================
+// 🔥 SUPER ADMIN LOGIN COMPONENT (NEW)
+// ==========================================
+const AdminLoginView = ({ onLogin, navigate }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    // Tumhara exact Password aur ID check
+    if (email === 'Admin@mediveu.com' && password === 'mediveu@2006') {
+      onLogin(true);
+      setError('');
+    } else {
+      setError('Galat Admin ID ya Password!');
+    }
+  };
+
+  return (
+    <div className="flex-grow flex items-center justify-center p-4 bg-slate-950 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950">
+      <Card className="w-full max-w-md border-red-500/20 shadow-2xl shadow-red-500/10 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 to-red-400"></div>
+        <div className="flex justify-center mb-6 mt-2">
+          <div className="bg-red-500/10 p-4 rounded-full text-red-500 border border-red-500/20">
+            <Shield size={36} />
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2 text-center">Super Admin Login</h2>
+        <p className="text-slate-400 text-sm text-center mb-6">Restricted Area. Authorized Personnel Only.</p>
+        
+        <form onSubmit={handleAdminLogin} className="space-y-4">
+          <Input 
+            label="Admin Email" 
+            type="email" 
+            value={email} 
+            onChange={e => setEmail(e.target.value)} 
+            placeholder="Enter admin ID"
+            required 
+          />
+          <Input 
+            label="Admin Password" 
+            type="password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            placeholder="Enter security key"
+            required 
+          />
+          
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-3 py-2 rounded-lg flex items-center gap-2">
+              <AlertTriangle size={16} /> {error}
+            </div>
+          )}
+          
+          <button 
+            type="submit" 
+            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-2.5 rounded-lg transition-all flex justify-center items-center gap-2 shadow-lg mt-2 cursor-pointer"
+          >
+            Authenticate <ArrowRight size={18} />
+          </button>
+          
+          <button 
+            type="button" 
+            onClick={() => navigate('public', 'home')} 
+            className="w-full text-slate-500 text-sm mt-4 hover:text-slate-300 transition-colors cursor-pointer"
+          >
+            ← Back to Public Website
+          </button>
+        </form>
+      </Card>
+    </div>
+  );
+};
+
 
 // ==========================================
 // PUBLIC WEBSITE
@@ -759,7 +861,6 @@ function TenantCustomersView({ data }) {
   );
 }
 
-// 🔥 SETTINGS VIEW UPDATED WITH ZIP EXPORT AND RESTORE
 function TenantSettingsView({ data, showToast, user }) {
   const [formData, setFormData] = useState({
     storeName: data.settings?.general?.storeName || 'PHARMA WHOLESALE',
@@ -781,7 +882,6 @@ function TenantSettingsView({ data, showToast, user }) {
     }
   };
 
-  // 🔥 NAYA EXPORT FUNCTION (ZIP)
   const handleExportBackup = async () => {
     try {
       showToast('Preparing backup files...', 'success');
@@ -795,7 +895,6 @@ function TenantSettingsView({ data, showToast, user }) {
         exportDate: new Date().toISOString()
       };
 
-      // utils folder se import kiya gaya function call
       await generateZipBackup(backupData, formData.storeName);
       showToast('Backup Zip Downloaded Successfully!');
     } catch (error) {
@@ -803,7 +902,6 @@ function TenantSettingsView({ data, showToast, user }) {
     }
   };
 
-  // 🔥 NAYA IMPORT / RESTORE FUNCTION (JSON File)
   const handleImportBackup = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -820,7 +918,6 @@ function TenantSettingsView({ data, showToast, user }) {
 
         showToast('Restoring data... Please wait.');
 
-        // Restore Medicines
         if (importedData.medicines && importedData.medicines.length > 0) {
           for (const med of importedData.medicines) {
             const { id, ...medData } = med;
@@ -828,7 +925,6 @@ function TenantSettingsView({ data, showToast, user }) {
           }
         }
         
-        // Restore Bills
         if (importedData.bills && importedData.bills.length > 0) {
           for (const bill of importedData.bills) {
             const { id, ...billData } = bill;
@@ -836,13 +932,12 @@ function TenantSettingsView({ data, showToast, user }) {
           }
         }
 
-        // Restore Settings
         if (importedData.settings && importedData.settings.general) {
           await setDoc(doc(db, 'users', user.uid, 'settings', 'general'), importedData.settings.general, { merge: true });
         }
 
         showToast('Backup Restored Successfully!', 'success');
-        e.target.value = null; // Input reset 
+        e.target.value = null;
       } catch (err) {
         showToast('Error restoring backup. File might be corrupted.', 'error');
       }
@@ -875,7 +970,6 @@ function TenantSettingsView({ data, showToast, user }) {
             <Download size={18} /> Download Backup (.zip)
           </Button>
 
-          {/* UPLOAD BUTTON FOR RESTORE */}
           <div className="relative w-full sm:w-auto">
             <input 
               type="file" 
@@ -893,4 +987,3 @@ function TenantSettingsView({ data, showToast, user }) {
     </div>
   );
 }
-
