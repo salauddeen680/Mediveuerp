@@ -51,7 +51,6 @@ export default function AdminPanel({ navigate }) {
       
       for (const userDoc of querySnapshot.docs) {
         const userId = userDoc.id;
-        // Subcollection check karne par kabhi kabhi error aata hai agar doc na ho, isliye try-catch
         let storeName = 'Unknown Store';
         let storePhone = 'N/A';
         
@@ -103,7 +102,6 @@ export default function AdminPanel({ navigate }) {
     }
   };
 
-  // 🔥 NAYA FUNCTION: Plan Update Karne Ke Liye
   const openEditPlanModal = (tenant) => {
     setCurrentEditUser(tenant);
     setNewPlanValue(tenant.plan);
@@ -116,7 +114,6 @@ export default function AdminPanel({ navigate }) {
       const userRef = doc(db, 'users', currentEditUser.id);
       await updateDoc(userRef, { plan: newPlanValue });
       
-      // Update local state so UI refreshes immediately
       setTenants(tenants.map(t => t.id === currentEditUser.id ? { ...t, plan: newPlanValue } : t));
       setShowPlanModal(false);
       alert("Plan successfully updated for " + currentEditUser.storeName);
@@ -126,7 +123,6 @@ export default function AdminPanel({ navigate }) {
     }
   };
 
-  // Safe string matching (To prevent crashes if plan is undefined)
   const filteredTenants = tenants.filter(t => 
     String(t.storeName).toLowerCase().includes(searchTerm.toLowerCase()) || 
     String(t.email).toLowerCase().includes(searchTerm.toLowerCase())
