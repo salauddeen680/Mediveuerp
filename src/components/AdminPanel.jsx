@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, CreditCard, Activity, LogOut, CheckCircle, AlertTriangle, Search, Lock, Unlock, RefreshCw, Save, Edit, X } from 'lucide-react';
 import { db } from '../firebase';
-// 🔥 onSnapshot import joda gaya hai real-time data ke liye
-import { collection, getDocs, doc, updateDoc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+// 🔥 updateDoc hata kar setDoc use kiya hai taaki error na aaye
+import { collection, getDocs, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 
-// 🔥 Logo import (Path check kar lena agar alag folder mein ho toh)
 import logo from '../logo.png';
 
 export default function AdminPanel({ navigate }) {
@@ -14,16 +13,13 @@ export default function AdminPanel({ navigate }) {
   const [globalUserLimit, setGlobalUserLimit] = useState(50);
   const [actionLoading, setActionLoading] = useState(null);
 
-  // Plan Edit Modal States
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [currentEditUser, setCurrentEditUser] = useState(null);
   const [newPlanValue, setNewPlanValue] = useState('');
-  // 🔥 Custom days ke liye naya state
   const [customDays, setCustomDays] = useState('');
 
   useEffect(() => {
     fetchAdminConfig(); 
-    // 🔥 Purana fetchTenants hata kar real-time listener call kar rahe hain
     const unsubscribe = listenToTenantsRealTime();
     return () => unsubscribe();
   }, []);
@@ -51,7 +47,6 @@ export default function AdminPanel({ navigate }) {
     }
   };
 
-  // 🔥 NAYA REAL-TIME FETCH FUNCTION JISME AUTO-EXPIRY LOGIC HAI
   const listenToTenantsRealTime = () => {
     setLoading(true);
     
@@ -63,7 +58,6 @@ export default function AdminPanel({ navigate }) {
         let storeName = 'Unknown Store';
         let storePhone = 'N/A';
         
-        // Store ki extra details (settings) fetch karna
         try {
           const sSnap = await getDoc(doc(db, 'users', userId, 'settings', 'general'));
           if (sSnap.exists()) {
@@ -74,29 +68,33 @@ export default function AdminPanel({ navigate }) {
           console.log("Settings not found for user", userId);
         }
 
-        // --- ⏳ AUTO EXPIRY CALCULATION ---
-        let days = 0;
+        // --- ⏳ DAYS LEFT CALCULATION LOGIC ---
+        let totalDays = 0;
+        let remainingDays = 0;
         const planStr = (userData.plan || '').toLowerCase();
         
-        if (planStr.includes('7 days') || planStr.includes('trial')) days = 7;
-        else if (planStr.includes('monthly') || planStr.includes('249')) days = 30;
-        else if (planStr.includes('yearly') || planStr.includes('2799')) days = 365;
-        else if (planStr.includes('lifetime')) days = 36500; // 100 saal
+        if (planStr.includes('7 days') || planStr.includes('trial')) totalDays = 7;
+        else if (planStr.includes('monthly') || planStr.includes('249')) totalDays = 30;
+        else if (planStr.includes('yearly') || planStr.includes('2799')) totalDays = 365;
+        else if (planStr.includes('lifetime')) remainingDays = 'Lifetime';
         else if (planStr.includes('custom')) {
-          // Extract number of days from "Custom Plan (X Days)"
           const match = planStr.match(/\d+/);
-          if (match) days = parseInt(match[0], 10);
+          if (match) totalDays = parseInt(match[0], 10);
         }
 
         let derivedStatus = userData.status || 'Active';
         const createdAtRaw = userData.createdAt || Date.now();
         const createdAtMs = typeof createdAtRaw === 'object' && createdAtRaw.seconds ? createdAtRaw.seconds * 1000 : Number(createdAtRaw);
 
-        // Agar account Active hai aur uske din check karne hain
-        if (derivedStatus === 'Active' && days > 0) {
-          const expiryTimestamp = createdAtMs + (days * 24 * 60 * 60 * 1000);
-          if (Date.now() > expiryTimestamp) {
-            derivedStatus = 'Expired'; // Din poore ho gaye toh automatically Expired dikhayega
+        if (totalDays > 0 && remainingDays !== 'Lifetime') {
+          const expiryTimestamp = createdAtMs + (totalDays * 24 * 60 * 60 * 1000);
+          const timeDiff = expiryTimestamp - Date.now();
+          
+          if (timeDiff <= 0) {
+            derivedStatus = 'Expired';
+            remainingDays = 0;
+          } else {
+            remainingDays = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
           }
         }
         
@@ -106,9 +104,9 @@ export default function AdminPanel({ navigate }) {
           storeName,
           phone: storePhone,
           status: derivedStatus,
-          originalStatus: userData.status || 'Active', // Database mein actual status
           plan: userData.plan || '7 Days Free Trial', 
-          createdAt: createdAtMs
+          createdAt: createdAtMs,
+          remainingDays: remainingDays
         };
       });
 
@@ -122,16 +120,14 @@ export default function AdminPanel({ navigate }) {
   };
 
   const toggleTenantStatus = async (tenantId, currentStatus) => {
-    // Agar status expired hai ya active hai, use toggle karke Suspended ya Active karo
     const newStatus = (currentStatus === 'Active' || currentStatus === 'Expired') ? 'Suspended' : 'Active';
     try {
       setActionLoading(tenantId);
       const userRef = doc(db, 'users', tenantId);
-      await updateDoc(userRef, { status: newStatus });
-      // Note: Hum state update nahi kar rahe kyunki onSnapshot auto update kar dega
+      await setDoc(userRef, { status: newStatus }, { merge: true });
     } catch (error) {
       console.error("Error updating status:", error);
-      alert("Failed to update store status. Make sure the user document exists.");
+      alert("Failed to update store status.");
     } finally {
       setActionLoading(null);
     }
@@ -139,7 +135,6 @@ export default function AdminPanel({ navigate }) {
 
   const openEditPlanModal = (tenant) => {
     setCurrentEditUser(tenant);
-    // Purana plan set karo, custom ho toh dropdown set karo
     if (tenant.plan.includes('Custom')) {
       setNewPlanValue('Custom Days');
       const match = tenant.plan.match(/\d+/);
@@ -156,10 +151,9 @@ export default function AdminPanel({ navigate }) {
     try {
       let finalPlan = newPlanValue;
       
-      // 🔥 Agar "Custom Days" chuna hai toh nayi string banayenge
       if (newPlanValue === 'Custom Days') {
         if (!customDays || Number(customDays) <= 0) {
-          alert("Please enter valid number of days!");
+          alert("Please enter a valid number of days!");
           return;
         }
         finalPlan = `Custom Plan (${customDays} Days)`;
@@ -167,18 +161,18 @@ export default function AdminPanel({ navigate }) {
 
       const userRef = doc(db, 'users', currentEditUser.id);
       
-      // 🔥 Naya plan denge toh 'createdAt' aaj ki date ho jayegi taaki timer reset ho
-      await updateDoc(userRef, { 
+      // 🔥 FIX: updateDoc ki jagah setDoc(..., { merge: true }) lagaya taaki document na milne par error na de
+      await setDoc(userRef, { 
         plan: finalPlan,
         createdAt: Date.now(),
-        status: 'Active' // Agar expired tha toh wapas active ho jayega
-      });
+        status: 'Active' 
+      }, { merge: true });
       
       setShowPlanModal(false);
       alert(`Plan successfully updated to ${finalPlan} for ${currentEditUser.storeName}`);
     } catch (error) {
       console.error("Error updating plan:", error);
-      alert("Failed to update the plan.");
+      alert(`Failed to update the plan. Error: ${error.message}`);
     }
   };
 
@@ -190,13 +184,11 @@ export default function AdminPanel({ navigate }) {
   const activeStores = tenants.filter(t => t.status === 'Active');
   const monthlyCount = activeStores.filter(t => String(t.plan).includes('249') || String(t.plan).toLowerCase().includes('monthly')).length;
   const yearlyCount = activeStores.filter(t => String(t.plan).includes('2799') || String(t.plan).toLowerCase().includes('yearly')).length;
-  
   const totalRevenue = (monthlyCount * 249) + (yearlyCount * 2799);
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans relative">
       <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
-        {/* 🔥 YAHAN AAPKA LOGO ADD KIYA GAYA HAI */}
         <div className="h-16 flex items-center px-6 border-b border-slate-800 text-red-500 font-bold text-lg gap-2">
           <img src={logo} alt="Logo" className="h-8 w-auto object-contain rounded-md shadow-sm" />
           <span className="truncate">Super Admin</span>
@@ -208,10 +200,7 @@ export default function AdminPanel({ navigate }) {
           </button>
         </div>
         <div className="p-4 border-t border-slate-800">
-          <button 
-            onClick={() => navigate('public', 'home')} 
-            className="w-full flex items-center gap-2 text-slate-400 hover:text-white px-3 py-2 rounded-lg transition-colors cursor-pointer"
-          >
+          <button onClick={() => navigate('public', 'home')} className="w-full flex items-center gap-2 text-slate-400 hover:text-white px-3 py-2 rounded-lg transition-colors cursor-pointer">
             <LogOut size={18} /> Exit Admin Console
           </button>
         </div>
@@ -223,16 +212,11 @@ export default function AdminPanel({ navigate }) {
             <h1 className="text-3xl font-bold text-white">System Control Panel</h1>
             <p className="text-slate-400 text-sm mt-1">Manage all registered medical stores, subscription plans, and access limits.</p>
           </div>
-          {/* Refresh button can stay for manual UI confidence, though real-time auto updates it */}
-          <button 
-            onClick={() => setLoading(true)} 
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium border border-slate-700 cursor-pointer transition-all"
-          >
+          <button onClick={() => setLoading(true)} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-lg text-sm font-medium border border-slate-700 cursor-pointer transition-all">
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh Data
           </button>
         </div>
 
-        {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-lg">
             <div className="text-slate-400 text-sm font-medium">Total Stores</div>
@@ -252,7 +236,6 @@ export default function AdminPanel({ navigate }) {
           </div>
         </div>
 
-        {/* Configuration Bar */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-6 flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-3">
             <Shield className="text-red-400" size={20} />
@@ -262,16 +245,8 @@ export default function AdminPanel({ navigate }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input 
-              type="number" 
-              value={globalUserLimit} 
-              onChange={(e) => setGlobalUserLimit(Number(e.target.value))}
-              className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white text-center focus:outline-none focus:border-red-500"
-            />
-            <button 
-              onClick={saveLimitToDb}
-              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 cursor-pointer shadow-md"
-            >
+            <input type="number" value={globalUserLimit} onChange={(e) => setGlobalUserLimit(Number(e.target.value))} className="w-24 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white text-center focus:outline-none focus:border-red-500"/>
+            <button onClick={saveLimitToDb} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 cursor-pointer shadow-md">
               <Save size={14} /> Save Limit
             </button>
             <span className="ml-2 text-xs bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/20 font-medium">
@@ -280,19 +255,12 @@ export default function AdminPanel({ navigate }) {
           </div>
         </div>
 
-        {/* Tenants Table Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
           <div className="p-4 border-b border-slate-800 flex items-center justify-between">
             <h3 className="font-semibold text-white">Tenant Stores Directory</h3>
             <div className="relative w-72">
               <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search store or email..." 
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-red-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <input type="text" placeholder="Search store or email..." className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-red-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/>
             </div>
           </div>
 
@@ -319,27 +287,35 @@ export default function AdminPanel({ navigate }) {
                       <td className="px-6 py-4 font-medium text-white">{t.storeName}</td>
                       <td className="px-6 py-4 text-slate-300">{t.email}</td>
                       <td className="px-6 py-4 text-slate-300">{t.phone}</td>
-                      <td className="px-6 py-4 flex items-center gap-2">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                          String(t.plan).includes('2799') || String(t.plan).toLowerCase().includes('yearly')
-                            ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                            : String(t.plan).includes('Custom') 
-                            ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                            : 'bg-teal-500/10 text-teal-400 border-teal-500/20'
-                        }`}>
-                          {t.plan}
-                        </span>
-                        {/* Edit Plan Button */}
-                        <button 
-                          onClick={() => openEditPlanModal(t)}
-                          className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-700 transition-colors cursor-pointer"
-                          title="Change Plan"
-                        >
-                          <Edit size={14} />
-                        </button>
-                      </td>
+                      
+                      {/* 🔥 Plan And Remaining Days View */}
                       <td className="px-6 py-4">
-                        {/* 🔥 Expired badge ke liye laal rang, baakiyon ke liye active/suspend colors */}
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                            String(t.plan).includes('2799') || String(t.plan).toLowerCase().includes('yearly') ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                              : String(t.plan).includes('Custom') ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                              : 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                          }`}>
+                            {t.plan}
+                          </span>
+                          <button onClick={() => openEditPlanModal(t)} className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-slate-700 transition-colors cursor-pointer" title="Change Plan">
+                            <Edit size={14} />
+                          </button>
+                        </div>
+                        {/* Display Days Left */}
+                        {t.status === 'Active' && t.remainingDays !== 'Lifetime' && t.remainingDays > 0 && (
+                          <div className="text-[11px] text-slate-400 mt-1 font-medium tracking-wide">
+                            ⏳ {t.remainingDays} days remaining
+                          </div>
+                        )}
+                        {t.status === 'Active' && t.remainingDays === 'Lifetime' && (
+                          <div className="text-[11px] text-emerald-400 mt-1 font-medium tracking-wide">
+                            ∞ Lifetime Access
+                          </div>
+                        )}
+                      </td>
+                      
+                      <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
                           t.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
                           : t.status === 'Expired' ? 'bg-red-600/20 text-red-500 border-red-500/40 animate-pulse'
@@ -349,9 +325,7 @@ export default function AdminPanel({ navigate }) {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => toggleTenantStatus(t.id, t.status)}
-                          disabled={actionLoading === t.id}
+                        <button onClick={() => toggleTenantStatus(t.id, t.status)} disabled={actionLoading === t.id}
                           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 ml-auto ${
                             t.status === 'Active' || t.status === 'Expired'
                               ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20'
@@ -371,7 +345,6 @@ export default function AdminPanel({ navigate }) {
         </div>
       </main>
 
-      {/* Edit Plan Modal Overlay */}
       {showPlanModal && currentEditUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -392,39 +365,24 @@ export default function AdminPanel({ navigate }) {
               
               <div>
                 <label className="text-xs text-slate-400 uppercase font-semibold">Select New Plan</label>
-                <select 
-                  value={newPlanValue} 
-                  onChange={(e) => setNewPlanValue(e.target.value)}
-                  className="w-full mt-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500"
-                >
+                <select value={newPlanValue} onChange={(e) => setNewPlanValue(e.target.value)} className="w-full mt-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-teal-500">
                   <option value="7 Days Free Trial">7 Days Free Trial</option>
                   <option value="Monthly Plan (₹249)">Monthly Plan (₹249)</option>
                   <option value="Yearly Plan (₹2799)">Yearly Plan (₹2799)</option>
                   <option value="Lifetime Access">Lifetime Access (Unlimited)</option>
-                  {/* 🔥 Custom Days Option */}
                   <option value="Custom Days">Custom Days (Enter Manually)</option>
                 </select>
               </div>
 
-              {/* 🔥 Custom Days Box (Sirf tab dikhega jab custom chuna ho) */}
               {newPlanValue === 'Custom Days' && (
                 <div className="mt-3 bg-slate-900 p-3 rounded-lg border border-slate-700">
                   <label className="text-xs text-orange-400 uppercase font-semibold">Enter Number of Days</label>
-                  <input 
-                    type="number" 
-                    value={customDays} 
-                    onChange={(e) => setCustomDays(e.target.value)}
-                    placeholder="Example: 15, 45, 90..."
-                    className="w-full mt-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-orange-500"
-                  />
+                  <input type="number" value={customDays} onChange={(e) => setCustomDays(e.target.value)} placeholder="Example: 15, 45, 90..." className="w-full mt-2 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-orange-500"/>
                   <p className="text-[10px] text-slate-500 mt-2">Validity will be calculated starting from today.</p>
                 </div>
               )}
 
-              <button 
-                onClick={saveUpdatedPlan}
-                className="w-full mt-4 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded-lg transition-colors cursor-pointer shadow-lg"
-              >
+              <button onClick={saveUpdatedPlan} className="w-full mt-4 bg-teal-500 hover:bg-teal-600 text-white font-bold py-2.5 rounded-lg transition-colors cursor-pointer shadow-lg">
                 Save Updated Plan
               </button>
             </div>
