@@ -34,3 +34,5 @@ enableIndexedDbPersistence(db)
       console.log("Browser offline mode support nahi karta.");
     }
   });
+
+
