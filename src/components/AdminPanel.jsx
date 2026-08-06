@@ -43,7 +43,8 @@ export default function AdminPanel({ navigate }) {
       await setDoc(doc(db, 'admin', 'config'), { userLimit: globalUserLimit }, { merge: true });
       alert("Success: Server capacity limit saved permanently!");
     } catch (error) {
-      alert("Error: Failed to save limit to database.");
+      // 🔥 Yahan Asli error message dikhega
+      alert(`Error: Failed to save limit. Firebase says: ${error.message}`);
     }
   };
 
@@ -127,7 +128,8 @@ export default function AdminPanel({ navigate }) {
       await setDoc(userRef, { status: newStatus }, { merge: true });
     } catch (error) {
       console.error("Error updating status:", error);
-      alert("Failed to update store status.");
+      // 🔥 Yahan Asli error message dikhega
+      alert(`Failed to update store status. Firebase says: ${error.message}`);
     } finally {
       setActionLoading(null);
     }
@@ -161,7 +163,6 @@ export default function AdminPanel({ navigate }) {
 
       const userRef = doc(db, 'users', currentEditUser.id);
       
-      // 🔥 FIX: updateDoc ki jagah setDoc(..., { merge: true }) lagaya taaki document na milne par error na de
       await setDoc(userRef, { 
         plan: finalPlan,
         createdAt: Date.now(),
@@ -172,6 +173,7 @@ export default function AdminPanel({ navigate }) {
       alert(`Plan successfully updated to ${finalPlan} for ${currentEditUser.storeName}`);
     } catch (error) {
       console.error("Error updating plan:", error);
+      // 🔥 Yahan Asli error message dikhega
       alert(`Failed to update the plan. Error: ${error.message}`);
     }
   };
@@ -288,7 +290,6 @@ export default function AdminPanel({ navigate }) {
                       <td className="px-6 py-4 text-slate-300">{t.email}</td>
                       <td className="px-6 py-4 text-slate-300">{t.phone}</td>
                       
-                      {/* 🔥 Plan And Remaining Days View */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
