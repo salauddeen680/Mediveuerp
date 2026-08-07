@@ -11,7 +11,8 @@ import CorporateTemplate from './Invoices/CorporateTemplate.jsx';
 import ServiceTemplate from './Invoices/ServiceTemplate.jsx';
 import CompactTemplate from './Invoices/CompactTemplate.jsx';
 
-export default function BillingPOS({ data, user, showToast }) {
+// 🔥 editBill aur setBillToEdit add kiya gaya hai props mein 🔥
+export default function BillingPOS({ data, user, showToast, editBill, setBillToEdit }) {
   // SAAS ACCESS CONTROL & SMART COUNTDOWN LOGIC
   const userStatus = data?.status || 'Active';
   const userPlan = data?.plan || '7 Days Free Trial';
@@ -35,15 +36,7 @@ export default function BillingPOS({ data, user, showToast }) {
   const isLocked = userStatus === 'Suspended' || isPlanExpired;
 
   // TEMPLATE SELECTION STATE
-  // 🔥 Default ko data se check kar rahe hain 🔥
   const [selectedTemplate, setSelectedTemplate] = useState(data?.templateName || 'classic');
-
-  // 🔥 NAYA EFFECT: Agar Report se purana bill khulta hai toh template change ho jayega 🔥
-  useEffect(() => {
-    if (data?.templateName) {
-      setSelectedTemplate(data.templateName);
-    }
-  }, [data]);
 
   // STORE SETTINGS
   const storeSettings = data?.settings?.general || {
@@ -93,13 +86,40 @@ export default function BillingPOS({ data, user, showToast }) {
 
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // 🔥 NAYA EFFECT: Edit Bill Ka Pura Data Load Karne Ke Liye 🔥
+  useEffect(() => {
+    if (editBill) {
+      // Template load karo
+      setSelectedTemplate(editBill.templateName || data?.templateName || 'classic');
+      
+      // Invoice aur Buyer Details load karo
+      if (editBill.invoiceDetails) setInvoiceDetails(editBill.invoiceDetails);
+      if (editBill.buyerDetails) setBuyerDetails(editBill.buyerDetails);
+      if (editBill.bankDetails) setBankDetails(editBill.bankDetails);
+      
+      // Items load karo (yahan null/undefined check laga diya hai error se bachne ke liye)
+      if (editBill.items && editBill.items.length > 0) {
+        setItems(editBill.items);
+      } else {
+        setItems([{ id: 1, code: '', description: '', hsn: '', qty: 0, rate: 0, disPercent: 0, gstPercent: 12 }]);
+      }
+
+      if (editBill.amountInWords) setAmountInWords(editBill.amountInWords);
+      if (editBill.terms) setTerms(editBill.terms);
+    }
+  }, [editBill, data]); // Jab bhi editBill change hoga, data bhar dega
+
   // CALCULATIONS
   useEffect(() => {
     let tValue = 0, tDiscount = 0, tGst = 0;
     items.forEach(item => {
       const qty = Number(item.qty) || 0;
       const rate = Number(item.rate) || 0;
-      const disP = Number(item.disPercent) || 0;
+      // 🔥 DISCOUNT PAR LIMIT LAGA DI HAI (0 Se Kam Nahi, 100 Se Zyada Nahi) 🔥
+      let disP = Number(item.disPercent) || 0;
+      if (disP < 0) disP = 0;
+      if (disP > 100) disP = 100;
+      
       const gstP = Number(item.gstPercent) || 0;
 
       const baseAmount = qty * rate;
@@ -129,6 +149,14 @@ export default function BillingPOS({ data, user, showToast }) {
 
   const handleItemChange = (index, field, value) => {
     const newItems = [...items];
+    
+    // 🔥 YAHAN BHI DISCOUNT FIELD PAR 100% KI LIMIT LAGA DI HAI 🔥
+    if (field === 'disPercent') {
+      let numVal = Number(value);
+      if (numVal > 100) value = 100;
+      if (numVal < 0) value = 0;
+    }
+    
     newItems[index][field] = value;
     setItems(newItems);
   };
@@ -140,6 +168,7 @@ export default function BillingPOS({ data, user, showToast }) {
     if (!user) return;
     setIsProcessing(true);
     try {
+      // Yahan hum naya doc add kar rahe hain, chahe toh ise edit karne par updateDoc bhi bana sakte ho.
       await addDoc(collection(db, 'users', user.uid, 'bills'), {
         invoiceDetails, 
         buyerDetails, 
@@ -148,10 +177,12 @@ export default function BillingPOS({ data, user, showToast }) {
         terms, 
         items, 
         totals, 
-        templateName: selectedTemplate, // 🔥 YAHAN TEMPLATE KA NAAM SAVE HO RAHA HAI 🔥
+        templateName: selectedTemplate, 
         createdAt: serverTimestamp()
       });
       showToast('Invoice Saved Successfully!');
+      // Save ke baad editBill state ko clear karne ke liye
+      if (setBillToEdit) setBillToEdit(null); 
     } catch (error) {
       showToast('Error saving invoice', 'error');
     }
