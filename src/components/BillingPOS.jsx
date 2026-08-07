@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+// 🔥 updateDoc aur doc ko import mein add kiya gaya hai 🔥
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Save, Lock, ShieldAlert, LayoutTemplate } from 'lucide-react';
 import logo from '../logo.png';
 
-// 🔥 SARE 5 TEMPLATES IMPORT KAR LIYE (WITH .jsx EXTENSION) 🔥
+// SARE 5 TEMPLATES IMPORT
 import ClassicTemplate from './Invoices/ClassicTemplate.jsx';
 import ModernTemplate from './Invoices/ModernTemplate.jsx';
 import CorporateTemplate from './Invoices/CorporateTemplate.jsx';
 import ServiceTemplate from './Invoices/ServiceTemplate.jsx';
 import CompactTemplate from './Invoices/CompactTemplate.jsx';
 
-// 🔥 editBill aur setBillToEdit add kiya gaya hai props mein 🔥
 export default function BillingPOS({ data, user, showToast, editBill, setBillToEdit }) {
   // SAAS ACCESS CONTROL & SMART COUNTDOWN LOGIC
   const userStatus = data?.status || 'Active';
@@ -86,18 +86,15 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🔥 NAYA EFFECT: Edit Bill Ka Pura Data Load Karne Ke Liye 🔥
+  // Edit Bill Ka Data Load Karne Ke Liye
   useEffect(() => {
     if (editBill) {
-      // Template load karo
       setSelectedTemplate(editBill.templateName || data?.templateName || 'classic');
       
-      // Invoice aur Buyer Details load karo
       if (editBill.invoiceDetails) setInvoiceDetails(editBill.invoiceDetails);
       if (editBill.buyerDetails) setBuyerDetails(editBill.buyerDetails);
       if (editBill.bankDetails) setBankDetails(editBill.bankDetails);
       
-      // Items load karo (yahan null/undefined check laga diya hai error se bachne ke liye)
       if (editBill.items && editBill.items.length > 0) {
         setItems(editBill.items);
       } else {
@@ -107,7 +104,7 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
       if (editBill.amountInWords) setAmountInWords(editBill.amountInWords);
       if (editBill.terms) setTerms(editBill.terms);
     }
-  }, [editBill, data]); // Jab bhi editBill change hoga, data bhar dega
+  }, [editBill, data]); 
 
   // CALCULATIONS
   useEffect(() => {
@@ -115,7 +112,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
     items.forEach(item => {
       const qty = Number(item.qty) || 0;
       const rate = Number(item.rate) || 0;
-      // 🔥 DISCOUNT PAR LIMIT LAGA DI HAI (0 Se Kam Nahi, 100 Se Zyada Nahi) 🔥
       let disP = Number(item.disPercent) || 0;
       if (disP < 0) disP = 0;
       if (disP > 100) disP = 100;
@@ -150,7 +146,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
   const handleItemChange = (index, field, value) => {
     const newItems = [...items];
     
-    // 🔥 YAHAN BHI DISCOUNT FIELD PAR 100% KI LIMIT LAGA DI HAI 🔥
     if (field === 'disPercent') {
       let numVal = Number(value);
       if (numVal > 100) value = 100;
@@ -164,12 +159,12 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
   const addRow = () => setItems([...items, { id: Date.now(), code: '', description: '', hsn: '', qty: 0, rate: 0, disPercent: 0, gstPercent: 12 }]);
   const removeRow = (index) => { if (items.length > 1) setItems(items.filter((_, i) => i !== index)); };
 
+  // 🔥 NAYA LOGIC: YAHAN CHECK HOGA KI BILL ADD KARNA HAI YA UPDATE 🔥
   const handleSaveBill = async () => {
     if (!user) return;
     setIsProcessing(true);
     try {
-      // Yahan hum naya doc add kar rahe hain, chahe toh ise edit karne par updateDoc bhi bana sakte ho.
-      await addDoc(collection(db, 'users', user.uid, 'bills'), {
+      const billDataToSave = {
         invoiceDetails, 
         buyerDetails, 
         bankDetails, 
@@ -178,12 +173,29 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
         items, 
         totals, 
         templateName: selectedTemplate, 
-        createdAt: serverTimestamp()
-      });
-      showToast('Invoice Saved Successfully!');
-      // Save ke baad editBill state ko clear karne ke liye
+      };
+
+      if (editBill && editBill.id) {
+        // AGAR PURANA BILL HAI -> UPDATE KARO (Duplicate nahi banega)
+        const billRef = doc(db, 'users', user.uid, 'bills', editBill.id);
+        await updateDoc(billRef, {
+          ...billDataToSave,
+          updatedAt: serverTimestamp() // Pata chalega kab update hua
+        });
+        showToast('Invoice Updated Successfully!');
+      } else {
+        // AGAR NAYA BILL HAI -> CREATE KARO
+        await addDoc(collection(db, 'users', user.uid, 'bills'), {
+          ...billDataToSave,
+          createdAt: serverTimestamp()
+        });
+        showToast('New Invoice Saved Successfully!');
+      }
+      
+      // Save hone ke baad Edit Mode hata do taaki naya bill ban sake aage
       if (setBillToEdit) setBillToEdit(null); 
     } catch (error) {
+      console.error(error);
       showToast('Error saving invoice', 'error');
     }
     setIsProcessing(false);
@@ -203,7 +215,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
     );
   }
 
-  // COMMON PROPS OBJECT
   const commonProps = {
     logo, storeSettings,
     invoiceDetails, setInvoiceDetails,
@@ -218,7 +229,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
   return (
     <div className="min-h-screen bg-slate-900 p-4 md:p-8 font-sans print:bg-white print:p-0">
       
-      {/* SUBSCRIPTION BANNER */}
       <div className="max-w-[210mm] mx-auto mb-4 flex justify-between items-center bg-slate-800 border border-slate-700 px-4 py-2.5 rounded-xl print:hidden shadow-lg">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-slate-400">Current Plan: <span className="text-white font-bold ml-1">{userPlan}</span></span>
@@ -228,7 +238,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
         </div>
       </div>
 
-      {/* TEMPLATE SELECTOR & CLOUD SAVE BUTTON */}
       <div className="max-w-[210mm] mx-auto mb-6 flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 print:hidden shadow-lg">
         <div className="flex items-center gap-3">
           <LayoutTemplate className="text-blue-400" size={24} />
@@ -246,13 +255,11 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
           <span className="text-xs text-slate-400 ml-2">*(All templates are now 100% Editable)*</span>
         </div>
 
-        {/* FIREBASE SAVE BUTTON */}
         <button onClick={handleSaveBill} disabled={isProcessing} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-md cursor-pointer disabled:opacity-50">
-          <Save size={18} className="mr-2" /> Save to Cloud
+          <Save size={18} className="mr-2" /> {editBill ? "Update Bill" : "Save to Cloud"}
         </button>
       </div>
 
-      {/* INVOICE RENDER AREA */}
       <div className="w-full">
         {selectedTemplate === 'classic' && <ClassicTemplate {...commonProps} />}
         {selectedTemplate === 'modern' && <ModernTemplate {...commonProps} />}
