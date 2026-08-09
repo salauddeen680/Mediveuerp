@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-// 🔥 updateDoc aur doc ko import mein add kiya gaya hai 🔥
 import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { Save, Lock, ShieldAlert, LayoutTemplate } from 'lucide-react';
+// 🔥 YAHAN 'Printer' ICON BHI IMPORT KIYA HAI 🔥
+import { Save, Lock, ShieldAlert, LayoutTemplate, Printer } from 'lucide-react';
 import logo from '../logo.png';
 
 // SARE 5 TEMPLATES IMPORT
@@ -57,7 +57,7 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
   });
 
   const [buyerDetails, setBuyerDetails] = useState({
-    name: 'M/s GUPTA STORE',
+    name: 'Customer Name',
     address: 'SHOP NO.2, KAROL BAGH, DELHI - 110006',
     gstin: '07CTMPM8957K1ZU',
     state: '07-DELHI',
@@ -159,7 +159,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
   const addRow = () => setItems([...items, { id: Date.now(), code: '', description: '', hsn: '', qty: 0, rate: 0, disPercent: 0, gstPercent: 12 }]);
   const removeRow = (index) => { if (items.length > 1) setItems(items.filter((_, i) => i !== index)); };
 
-  // 🔥 NAYA LOGIC: YAHAN CHECK HOGA KI BILL ADD KARNA HAI YA UPDATE 🔥
   const handleSaveBill = async () => {
     if (!user) return;
     setIsProcessing(true);
@@ -176,15 +175,13 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
       };
 
       if (editBill && editBill.id) {
-        // AGAR PURANA BILL HAI -> UPDATE KARO (Duplicate nahi banega)
         const billRef = doc(db, 'users', user.uid, 'bills', editBill.id);
         await updateDoc(billRef, {
           ...billDataToSave,
-          updatedAt: serverTimestamp() // Pata chalega kab update hua
+          updatedAt: serverTimestamp() 
         });
         showToast('Invoice Updated Successfully!');
       } else {
-        // AGAR NAYA BILL HAI -> CREATE KARO
         await addDoc(collection(db, 'users', user.uid, 'bills'), {
           ...billDataToSave,
           createdAt: serverTimestamp()
@@ -192,7 +189,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
         showToast('New Invoice Saved Successfully!');
       }
       
-      // Save hone ke baad Edit Mode hata do taaki naya bill ban sake aage
       if (setBillToEdit) setBillToEdit(null); 
     } catch (error) {
       console.error(error);
@@ -238,11 +234,11 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
         </div>
       </div>
 
-      <div className="max-w-[210mm] mx-auto mb-6 flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 print:hidden shadow-lg">
-        <div className="flex items-center gap-3">
-          <LayoutTemplate className="text-blue-400" size={24} />
+      <div className="max-w-[210mm] mx-auto mb-6 flex flex-col sm:flex-row gap-4 justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 print:hidden shadow-lg">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <LayoutTemplate className="text-blue-400 shrink-0" size={24} />
           <select 
-            className="bg-slate-900 text-white border border-slate-600 rounded-lg px-4 py-2 outline-none cursor-pointer font-semibold"
+            className="bg-slate-900 text-white border border-slate-600 rounded-lg px-4 py-2 outline-none cursor-pointer font-semibold w-full sm:w-auto"
             value={selectedTemplate}
             onChange={(e) => setSelectedTemplate(e.target.value)}
           >
@@ -252,12 +248,25 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
             <option value="service">4. Service / Freelance</option>
             <option value="compact">5. Compact Retail</option>
           </select>
-          <span className="text-xs text-slate-400 ml-2">*(All templates are now 100% Editable)*</span>
         </div>
 
-        <button onClick={handleSaveBill} disabled={isProcessing} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-md cursor-pointer disabled:opacity-50">
-          <Save size={18} className="mr-2" /> {editBill ? "Update Bill" : "Save to Cloud"}
-        </button>
+        {/* 🔥 YAHAN PRINT BUTTON ADD KIYA HAI 🔥 */}
+        <div className="flex gap-3 w-full sm:w-auto">
+          <button 
+            onClick={() => window.print()} 
+            className="flex-1 sm:flex-none flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-md cursor-pointer"
+          >
+            <Printer size={18} className="mr-2" /> Print Bill
+          </button>
+          
+          <button 
+            onClick={handleSaveBill} 
+            disabled={isProcessing} 
+            className="flex-1 sm:flex-none flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+          >
+            <Save size={18} className="mr-2" /> {editBill ? "Update Bill" : "Save to Cloud"}
+          </button>
+        </div>
       </div>
 
       <div className="w-full">
