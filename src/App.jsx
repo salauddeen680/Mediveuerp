@@ -23,6 +23,11 @@ import AdminPanel from './components/AdminPanel';
 import Reports from './components/Reports';
 import SubscriptionPlans from './components/SubscriptionPlans'; 
 
+// 🔥 Nayi Files Import Ho Gayi Hain 🔥
+import Features from './components/Features';
+import Inventory from './components/Inventory';
+import Customers from './components/Customers';
+
 // Utils
 import { generateZipBackup } from './utils/backupExporter';
 
@@ -113,7 +118,6 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState('home');
   const [toast, setToast] = useState(null);
   
-  // 🔥 ADMIN AUTHENTICATION STATE
   const [isAdminAuth, setIsAdminAuth] = useState(false);
 
   const [medicines, setMedicines] = useState([]);
@@ -191,7 +195,7 @@ export default function App() {
       window.history.pushState({}, '', '/admin');
     } else {
       window.history.pushState({}, '', '/');
-      setIsAdminAuth(false); // Security: Reset admin auth if they leave the page
+      setIsAdminAuth(false);
     }
     window.scrollTo(0, 0);
   };
@@ -242,7 +246,6 @@ export default function App() {
         />
       )}
       
-      {/* 🔥 ADMIN SECURITY CHECK (NEW LOGIN LAYER) */}
       {currentView === 'admin' && (
         isAdminAuth ? (
           <AdminPanel navigate={navigate} />
@@ -257,7 +260,7 @@ export default function App() {
 }
 
 // ==========================================
-// 🔥 SUPER ADMIN LOGIN COMPONENT (NEW)
+// SUPER ADMIN LOGIN COMPONENT
 // ==========================================
 const AdminLoginView = ({ onLogin, navigate }) => {
   const [email, setEmail] = useState('');
@@ -266,7 +269,6 @@ const AdminLoginView = ({ onLogin, navigate }) => {
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
-    // Tumhara exact Password aur ID check
     if (email === 'Admin@mediveu.com' && password === 'mediveu@2006') {
       onLogin(true);
       setError('');
@@ -288,22 +290,8 @@ const AdminLoginView = ({ onLogin, navigate }) => {
         <p className="text-slate-400 text-sm text-center mb-6">Restricted Area. Authorized Personnel Only.</p>
         
         <form onSubmit={handleAdminLogin} className="space-y-4">
-          <Input 
-            label="Admin Email" 
-            type="email" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            placeholder="Enter admin ID"
-            required 
-          />
-          <Input 
-            label="Admin Password" 
-            type="password" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            placeholder="Enter security key"
-            required 
-          />
+          <Input label="Admin Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Enter admin ID" required />
+          <Input label="Admin Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter security key" required />
           
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-3 py-2 rounded-lg flex items-center gap-2">
@@ -311,18 +299,11 @@ const AdminLoginView = ({ onLogin, navigate }) => {
             </div>
           )}
           
-          <button 
-            type="submit" 
-            className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-2.5 rounded-lg transition-all flex justify-center items-center gap-2 shadow-lg mt-2 cursor-pointer"
-          >
+          <button type="submit" className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-2.5 rounded-lg transition-all flex justify-center items-center gap-2 shadow-lg mt-2 cursor-pointer">
             Authenticate <ArrowRight size={18} />
           </button>
           
-          <button 
-            type="button" 
-            onClick={() => navigate('public', 'home')} 
-            className="w-full text-slate-500 text-sm mt-4 hover:text-slate-300 transition-colors cursor-pointer"
-          >
+          <button type="button" onClick={() => navigate('public', 'home')} className="w-full text-slate-500 text-sm mt-4 hover:text-slate-300 transition-colors cursor-pointer">
             ← Back to Public Website
           </button>
         </form>
@@ -341,7 +322,10 @@ function PublicWebsite({ navigate, showToast }) {
   const renderContent = () => {
     switch (activeTab) {
       case 'home': return <HomeView setActiveTab={setActiveTab} showToast={showToast} />;
-      case 'features': return <FeaturesView />;
+      
+      // 🔥 Yahan par Naya Features Page Link Ho Gaya Hai 🔥
+      case 'features': return <Features navigate={navigate} />; 
+      
       case 'pricing': return <PricingView setActiveTab={setActiveTab} showToast={showToast} />;
       case 'contact': return <ContactView />;
       case 'login': return <LoginView navigate={navigate} showToast={showToast} setActiveTab={setActiveTab} />;
@@ -389,16 +373,7 @@ const HomeView = ({ setActiveTab, showToast }) => (
         <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg w-full sm:w-auto">Create Account / 7 Days Free Trial</Button>
       </div>
     </div>
-    <FeaturesView />
-    <PricingView setActiveTab={setActiveTab} showToast={showToast} />
   </>
-);
-
-const FeaturesView = () => (
-  <div className="max-w-7xl mx-auto px-4 py-20 text-center text-white space-y-6">
-    <h2 className="text-3xl font-bold">Complete Wholesale Pharma Features</h2>
-    <p className="text-slate-400 max-w-2xl mx-auto">Multi-tenant secure architecture, lightning-fast POS billing, batch-wise inventory tracking, and complete customer history reports.</p>
-  </div>
 );
 
 const PricingView = ({ setActiveTab, showToast }) => {
@@ -584,8 +559,11 @@ function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout,
     switch (currentPath) {
       case 'dashboard': return <TenantDashboardView data={data} navigate={navigate} />;
       case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} editBill={billToEdit} setBillToEdit={setBillToEdit} />;
-      case 'medicines': return <TenantMedicinesView data={data} showToast={showToast} user={user} />;
-      case 'customers': return <TenantCustomersView data={data} />;
+      
+      // 🔥 Yahan par Nayi Inventory & Customers File Link Ho Gayi Hain 🔥
+      case 'medicines': return <Inventory user={user} />;
+      case 'customers': return <Customers user={user} />;
+      
       case 'reports': return <Reports data={data} onOpenBill={(bill) => { setBillToEdit(bill); navigate('tenant', 'billing'); }} />;
       case 'subscription': return <SubscriptionPlans user={user} showToast={showToast} navigate={navigate} />;
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
@@ -764,99 +742,6 @@ function TenantDashboardView({ data, navigate }) {
         <Card><div className="text-slate-400 text-sm">Total Invoices</div><div className="text-2xl md:text-3xl font-bold text-blue-400 mt-1">{bills.length}</div></Card>
         <Card><div className="text-slate-400 text-sm">Total Medicines</div><div className="text-2xl md:text-3xl font-bold text-teal-400 mt-1">{medicines.length}</div></Card>
       </div>
-    </div>
-  );
-}
-
-function TenantMedicinesView({ data, showToast, user }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', batch: 'B101', expiry: '12/26', hsn: '3004', stock: 50, mrp: 100, gst: 12 });
-  const handleSave = async (e) => {
-    e.preventDefault();
-    await addDoc(collection(db, 'users', user.uid, 'medicines'), form);
-    showToast('Medicine added successfully!');
-    setIsModalOpen(false);
-  };
-  return (
-    <div className="space-y-4 max-w-7xl mx-auto w-full">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-white">Inventory Management</h1>
-        <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto">Add Medicine</Button>
-      </div>
-      <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto w-full rounded-xl">
-          <table className="w-full text-sm text-left whitespace-nowrap min-w-[600px]">
-            <thead className="bg-slate-900 text-slate-400">
-              <tr><th className="p-4">Name</th><th className="p-4">Batch</th><th className="p-4">Expiry</th><th className="p-4">Stock</th><th className="p-4">MRP</th></tr>
-            </thead>
-            <tbody>
-              {data.medicines?.map(m => (
-                <tr key={m.id} className="border-b border-slate-800 hover:bg-slate-800/50">
-                  <td className="p-4 text-white font-medium">{m.name}</td>
-                  <td className="p-4">{m.batch}</td><td className="p-4">{m.expiry}</td>
-                  <td className="p-4">{m.stock}</td><td className="p-4">₹{m.mrp}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Medicine">
-        <form onSubmit={handleSave} className="space-y-4">
-          <Input label="Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Batch" value={form.batch} onChange={e => setForm({...form, batch: e.target.value})} required />
-            <Input label="Expiry (MM/YY)" value={form.expiry} onChange={e => setForm({...form, expiry: e.target.value})} required />
-            <Input label="Stock" type="number" value={form.stock} onChange={e => setForm({...form, stock: Number(e.target.value)})} required />
-            <Input label="MRP" type="number" value={form.mrp} onChange={e => setForm({...form, mrp: Number(e.target.value)})} required />
-          </div>
-          <Button type="submit" className="w-full mt-4">Save</Button>
-        </form>
-      </Modal>
-    </div>
-  );
-}
-
-function TenantCustomersView({ data }) {
-  const customerMap = new Map();
-  if (data?.bills) {
-    data.bills.forEach(b => {
-      const name = b.customerName || b.buyerDetails?.name || 'Unknown Party';
-      const gst = b.customerGstin || b.buyerDetails?.gstin || 'N/A';
-      const amount = Number(b.totals?.grandTotal || b.total || 0);
-      if (customerMap.has(name)) {
-        customerMap.set(name, { ...customerMap.get(name), total: customerMap.get(name).total + amount });
-      } else {
-        customerMap.set(name, { name, gst, total: amount });
-      }
-    });
-  }
-  const customerList = Array.from(customerMap.values());
-
-  return (
-    <div className="max-w-7xl mx-auto space-y-4 w-full">
-      <h1 className="text-xl md:text-2xl font-bold text-white">Customers Directory</h1>
-      <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto w-full rounded-xl">
-          <table className="w-full text-sm text-left whitespace-nowrap min-w-[500px]">
-            <thead className="bg-slate-900 text-slate-400">
-              <tr><th className="p-4">Customer Name</th><th className="p-4">GSTIN</th><th className="p-4 text-right">Total Purchases</th></tr>
-            </thead>
-            <tbody>
-              {customerList.map((c, i) => (
-                <tr key={i} className="border-b border-slate-800 hover:bg-slate-800/50">
-                  <td className="p-4 text-white font-medium">{c.name}</td>
-                  <td className="p-4 text-slate-300">{c.gst}</td>
-                  <td className="p-4 text-right text-teal-400 font-bold">₹{c.total.toFixed(2)}</td>
-                </tr>
-              ))}
-              {customerList.length === 0 && (
-                <tr><td colSpan="3" className="text-center py-8 text-slate-500">No customers found. Generate bills to add customers.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   );
 }
