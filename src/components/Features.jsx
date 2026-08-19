@@ -39,24 +39,7 @@ export default function Features({ navigate }) {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30">
-      
-      {/* Navbar */}
-      <nav className="flex justify-between items-center p-6 max-w-7xl mx-auto border-b border-slate-800">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="Mediveu ERP" className="h-10 w-auto rounded-lg shadow-lg" />
-          <span className="text-2xl font-bold text-white tracking-wide">MEDIVEU <span className="text-teal-500">ERP</span></span>
-        </div>
-        <div>
-          {/* 🔥 Login Button - Linked Automatically 🔥 */}
-          <button 
-            onClick={() => navigate ? navigate('login') : console.log('Go to Login')}
-            className="text-sm font-bold text-white bg-slate-800 hover:bg-slate-700 px-6 py-2.5 rounded-full border border-slate-700 transition-all cursor-pointer shadow-md"
-          >
-            Login / Signup
-          </button>
-        </div>
-      </nav>
-
+     
       {/* Hero Section */}
       <div className="max-w-4xl mx-auto text-center pt-20 pb-16 px-4">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 text-sm font-semibold mb-6">
