@@ -24,7 +24,7 @@ const ModernTemplate = ({
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: 'Invoice', text: 'Invoice Attached.' });
         } else {
-          alert("Aapka device direct share support nahi karta. Please 'Save' karein.");
+          alert("Aapka device direct share support nahi karta. Please 'Save PDF' karein.");
         }
       });
     } catch (err) {
@@ -43,8 +43,8 @@ const ModernTemplate = ({
     pdf.save(`${invoiceDetails.invoiceNumber || 'Invoice'}.pdf`);
   };
 
-  // Editable Input Style (Dashed border jo print mein gayab ho jayegi)
-  const inputClass = "w-full bg-transparent outline-none border-b border-dashed border-gray-300 focus:border-solid focus:border-blue-500 print:border-none text-gray-800 font-medium";
+  // 🔥 MAGIC CSS FIX: Hover/Focus par line dikhegi, par PDF/Print mein transparent ho jayegi 🔥
+  const inputClass = "w-full outline-none bg-transparent text-gray-800 border-b border-transparent hover:border-gray-300 hover:border-dashed focus:border-blue-500 focus:border-solid font-medium py-1 transition-colors";
 
   return (
     <div className="max-w-4xl mx-auto p-4 bg-gray-50">
@@ -75,13 +75,13 @@ const ModernTemplate = ({
         }
       `}</style>
 
-      {/* 🔥 MOBILE RESPONSIVE WRAPPER 🔥 */}
+      {/* MOBILE RESPONSIVE WRAPPER */}
       <div id="modern-invoice-wrapper" className="w-full overflow-x-auto pb-10 print:pb-0 scrollbar-thin scrollbar-thumb-blue-500 scrollbar-track-transparent">
         
-        {/* EDITABLE INVOICE AREA (Fixed A4 Width for Mobile) */}
+        {/* EDITABLE INVOICE AREA */}
         <div id="modern-invoice" ref={invoiceRef} className="w-full min-w-[800px] max-w-[210mm] mx-auto bg-white p-8 border border-gray-200 rounded-sm shadow-xl text-gray-800 relative" style={{ minHeight: '1050px' }}>
           
-          {/* 🔥 HEADER: MODERN CENTERED STYLE 🔥 */}
+          {/* HEADER: MODERN CENTERED STYLE */}
           <div className="flex flex-col items-center justify-center border-b-2 border-gray-100 pb-6 mb-8 relative text-center">
             
             {/* INVOICE TAG */}
@@ -216,7 +216,7 @@ const ModernTemplate = ({
               {/* Terms */}
               <div>
                 <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Terms & Conditions:</p>
-                <textarea className="w-full bg-transparent outline-none border border-dashed border-gray-300 focus:border-blue-500 print:border-none text-[11px] text-gray-500 resize-none h-12 leading-relaxed" value={terms} onChange={e => setTerms(e.target.value)} />
+                <textarea className="w-full bg-transparent outline-none border border-dashed border-gray-300 focus:border-blue-500 print:border-none text-[11px] text-gray-500 resize-none h-12 leading-relaxed py-1" value={terms} onChange={e => setTerms(e.target.value)} />
               </div>
             </div>
             
