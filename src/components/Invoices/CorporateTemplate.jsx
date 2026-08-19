@@ -24,7 +24,7 @@ const CorporateTemplate = ({
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: 'Invoice', text: 'Invoice Attached.' });
         } else {
-          alert("Aapka device direct share support nahi karta. Please 'Save' karein.");
+          alert("Aapka device direct share support nahi karta. Please 'Save PDF' karein.");
         }
       });
     } catch (err) {
@@ -43,8 +43,8 @@ const CorporateTemplate = ({
     pdf.save(`Corporate_Invoice_${invoiceDetails.invoiceNumber}.pdf`);
   };
 
-  // Editable Input Style (Print par lines gayab)
-  const inputClass = "w-full bg-transparent outline-none border-b border-dashed border-gray-400 focus:border-solid focus:border-blue-800 print:border-none text-gray-800 font-medium";
+  // 🔥 MAGIC CSS FIX: Hover/Focus par line dikhegi, par PDF/Print mein transparent ho jayegi 🔥
+  const inputStyle = "w-full outline-none bg-transparent text-gray-800 border-b border-transparent hover:border-gray-400 hover:border-dashed focus:border-blue-800 focus:border-solid font-medium py-1 transition-colors";
 
   return (
     <div className="max-w-4xl mx-auto p-4 bg-gray-50">
@@ -75,7 +75,7 @@ const CorporateTemplate = ({
         }
       `}</style>
 
-      {/* 🔥 MOBILE RESPONSIVE WRAPPER 🔥 */}
+      {/* MOBILE RESPONSIVE WRAPPER */}
       <div id="corporate-invoice-wrapper" className="w-full overflow-x-auto pb-10 print:pb-0 scrollbar-thin scrollbar-thumb-blue-800 scrollbar-track-transparent">
         
         {/* INVOICE AREA (Fixed A4 Width for Mobile) */}
@@ -85,7 +85,7 @@ const CorporateTemplate = ({
           <div className="h-3 w-full bg-blue-800 absolute top-0 left-0"></div>
 
           <div className="p-8 pt-10">
-            {/* 🔥 HEADER: CENTERED CORPORATE STYLE 🔥 */}
+            {/* HEADER: CENTERED CORPORATE STYLE */}
             <div className="border-b-2 border-blue-100 pb-6 mb-8 relative flex flex-col items-center justify-center text-center">
               
               {/* TAX INVOICE BADGE */}
@@ -110,16 +110,16 @@ const CorporateTemplate = ({
               {/* INVOICE TO */}
               <div className="w-1/2 pr-6 border-r border-blue-100 flex flex-col gap-2">
                 <p className="text-xs text-blue-800 font-bold uppercase mb-1">Invoice To (Client):</p>
-                <div className="flex items-center"><span className="w-20 font-semibold">Name:</span> <input type="text" className={`${inputClass} text-base font-bold uppercase`} placeholder="Client Name" value={buyerDetails.name} onChange={e => setBuyerDetails({...buyerDetails, name: e.target.value})} /></div>
-                <div className="flex items-center"><span className="w-20 font-semibold">Address:</span> <input type="text" className={`${inputClass} uppercase`} placeholder="Address" value={buyerDetails.address} onChange={e => setBuyerDetails({...buyerDetails, address: e.target.value})} /></div>
-                <div className="flex items-center"><span className="w-20 font-semibold">GSTIN:</span> <input type="text" className={`${inputClass} uppercase font-bold`} placeholder="GST Number (Optional)" value={buyerDetails.gstin} onChange={e => setBuyerDetails({...buyerDetails, gstin: e.target.value})} /></div>
+                <div className="flex items-center"><span className="w-20 font-semibold">Name:</span> <input type="text" className={`${inputStyle} text-base font-bold uppercase`} placeholder="Client Name" value={buyerDetails.name} onChange={e => setBuyerDetails({...buyerDetails, name: e.target.value})} /></div>
+                <div className="flex items-center"><span className="w-20 font-semibold">Address:</span> <input type="text" className={`${inputStyle} uppercase`} placeholder="Address" value={buyerDetails.address} onChange={e => setBuyerDetails({...buyerDetails, address: e.target.value})} /></div>
+                <div className="flex items-center"><span className="w-20 font-semibold">GSTIN:</span> <input type="text" className={`${inputStyle} uppercase font-bold`} placeholder="GST Number (Optional)" value={buyerDetails.gstin} onChange={e => setBuyerDetails({...buyerDetails, gstin: e.target.value})} /></div>
               </div>
               
               {/* INVOICE META */}
               <div className="w-1/2 pl-6 flex flex-col gap-2 justify-center">
-                <div className="flex items-center"><span className="text-sm text-blue-800 font-bold uppercase w-28">Inv Number:</span> <input type="text" className={`${inputClass} font-bold text-base`} value={invoiceDetails.invoiceNumber} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceNumber: e.target.value})} /></div>
-                <div className="flex items-center"><span className="text-sm text-blue-800 font-bold uppercase w-28">Inv Date:</span> <input type="date" className={`${inputClass}`} value={invoiceDetails.invoiceDate} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceDate: e.target.value})} /></div>
-                <div className="flex items-center"><span className="text-sm text-blue-800 font-bold uppercase w-28">State:</span> <input type="text" className={`${inputClass} uppercase`} value={invoiceDetails.stateCode} onChange={e => setInvoiceDetails({...invoiceDetails, stateCode: e.target.value})} /></div>
+                <div className="flex items-center"><span className="text-sm text-blue-800 font-bold uppercase w-28">Inv Number:</span> <input type="text" className={`${inputStyle} font-bold text-base`} value={invoiceDetails.invoiceNumber} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceNumber: e.target.value})} /></div>
+                <div className="flex items-center"><span className="text-sm text-blue-800 font-bold uppercase w-28">Inv Date:</span> <input type="date" className={`${inputStyle}`} value={invoiceDetails.invoiceDate} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceDate: e.target.value})} /></div>
+                <div className="flex items-center"><span className="text-sm text-blue-800 font-bold uppercase w-28">State:</span> <input type="text" className={`${inputStyle} uppercase`} value={invoiceDetails.stateCode} onChange={e => setInvoiceDetails({...invoiceDetails, stateCode: e.target.value})} /></div>
               </div>
             </div>
 
@@ -148,21 +148,21 @@ const CorporateTemplate = ({
 
                     return (
                       <tr key={item.id} className="border-b border-gray-200 hover:bg-blue-50/50 group relative align-top">
-                        <td className="py-2.5 px-2 text-[13px] text-center font-bold relative border-r border-gray-200">
+                        <td className="py-3 px-2 text-[13px] text-center font-bold relative border-r border-gray-200">
                           {index + 1}
                           {items.length > 1 && (
-                            <button onClick={() => removeRow(index)} className="absolute -left-6 top-2 text-red-500 opacity-0 group-hover:opacity-100 print:hidden cursor-pointer" data-html2canvas-ignore="true">
+                            <button onClick={() => removeRow(index)} className="absolute -left-6 top-3 text-red-500 opacity-0 group-hover:opacity-100 print:hidden cursor-pointer" data-html2canvas-ignore="true">
                               <Trash2 size={14} />
                             </button>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 border-r border-gray-200"><input type="text" className={`${inputClass} font-bold`} placeholder="Type item name..." value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} /></td>
-                        <td className="py-2.5 px-2 border-r border-gray-200"><input type="text" className={`${inputClass} text-center`} value={item.hsn || ''} onChange={(e) => handleItemChange(index, 'hsn', e.target.value)} /></td>
-                        <td className="py-2.5 px-2 border-r border-gray-200"><input type="number" className={`${inputClass} text-center font-bold`} placeholder="0" value={item.qty || ''} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} /></td>
-                        <td className="py-2.5 px-2 border-r border-gray-200"><input type="number" className={`${inputClass} text-right`} placeholder="0.00" value={item.rate || ''} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} /></td>
-                        <td className="py-2.5 px-2 border-r border-gray-200"><input type="number" className={`${inputClass} text-center`} placeholder="0" value={item.disPercent || ''} onChange={(e) => handleItemChange(index, 'disPercent', e.target.value)} /></td>
-                        <td className="py-2.5 px-2 border-r border-gray-200"><input type="number" className={`${inputClass} text-center`} placeholder="0" value={item.gstPercent || ''} onChange={(e) => handleItemChange(index, 'gstPercent', e.target.value)} /></td>
-                        <td className="py-2.5 px-3 text-[14px] text-right font-bold text-gray-800">₹{totalAmount.toFixed(2)}</td>
+                        <td className="py-3 px-3 border-r border-gray-200"><input type="text" className={`${inputStyle} font-bold`} placeholder="Type item name..." value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} /></td>
+                        <td className="py-3 px-2 border-r border-gray-200"><input type="text" className={`${inputStyle} text-center`} value={item.hsn || ''} onChange={(e) => handleItemChange(index, 'hsn', e.target.value)} /></td>
+                        <td className="py-3 px-2 border-r border-gray-200"><input type="number" className={`${inputStyle} text-center font-bold`} placeholder="0" value={item.qty || ''} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} /></td>
+                        <td className="py-3 px-2 border-r border-gray-200"><input type="number" className={`${inputStyle} text-right`} placeholder="0.00" value={item.rate || ''} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} /></td>
+                        <td className="py-3 px-2 border-r border-gray-200"><input type="number" className={`${inputStyle} text-center`} placeholder="0" value={item.disPercent || ''} onChange={(e) => handleItemChange(index, 'disPercent', e.target.value)} /></td>
+                        <td className="py-3 px-2 border-r border-gray-200"><input type="number" className={`${inputStyle} text-center`} placeholder="0" value={item.gstPercent || ''} onChange={(e) => handleItemChange(index, 'gstPercent', e.target.value)} /></td>
+                        <td className="py-3 px-3 text-[14px] text-right font-bold text-gray-800">₹{totalAmount.toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -183,19 +183,19 @@ const CorporateTemplate = ({
               <div className="w-7/12 pr-6 flex flex-col justify-between">
                 <div className="bg-blue-50/50 p-4 rounded-md border border-blue-100">
                   <p className="text-xs text-blue-800 font-bold uppercase mb-2">Payment / Bank Details</p>
-                  <div className="flex items-center text-[13px] mb-1.5"><span className="w-24 text-gray-700 font-semibold">Bank Name:</span> <input type="text" className={`${inputClass} uppercase`} placeholder="Bank Name" value={bankDetails.bankName} onChange={e => setBankDetails({...bankDetails, bankName: e.target.value})} /></div>
-                  <div className="flex items-center text-[13px] mb-1.5"><span className="w-24 text-gray-700 font-semibold">Account No:</span> <input type="text" className={`${inputClass} uppercase font-bold`} placeholder="Account Number" value={bankDetails.accountNo} onChange={e => setBankDetails({...bankDetails, accountNo: e.target.value})} /></div>
-                  <div className="flex items-center text-[13px]"><span className="w-24 text-gray-700 font-semibold">IFSC Code:</span> <input type="text" className={`${inputClass} uppercase font-bold`} placeholder="IFSC Code" value={bankDetails.ifsc} onChange={e => setBankDetails({...bankDetails, ifsc: e.target.value})} /></div>
+                  <div className="flex items-center text-[13px] mb-1.5"><span className="w-24 text-gray-700 font-semibold">Bank Name:</span> <input type="text" className={`${inputStyle} uppercase`} placeholder="Bank Name" value={bankDetails.bankName} onChange={e => setBankDetails({...bankDetails, bankName: e.target.value})} /></div>
+                  <div className="flex items-center text-[13px] mb-1.5"><span className="w-24 text-gray-700 font-semibold">Account No:</span> <input type="text" className={`${inputStyle} uppercase font-bold`} placeholder="Account Number" value={bankDetails.accountNo} onChange={e => setBankDetails({...bankDetails, accountNo: e.target.value})} /></div>
+                  <div className="flex items-center text-[13px]"><span className="w-24 text-gray-700 font-semibold">IFSC Code:</span> <input type="text" className={`${inputStyle} uppercase font-bold`} placeholder="IFSC Code" value={bankDetails.ifsc} onChange={e => setBankDetails({...bankDetails, ifsc: e.target.value})} /></div>
                 </div>
 
                 <div className="mt-3 flex items-center bg-gray-50 p-2 border border-gray-200 rounded">
                   <span className="mr-2 font-bold whitespace-nowrap text-xs text-blue-800 uppercase">Amt in Words:</span>
-                  <input type="text" className={`${inputClass} font-bold text-xs uppercase border-none`} placeholder="Rupees..." value={amountInWords || ''} onChange={e => setAmountInWords ? setAmountInWords(e.target.value) : null} />
+                  <input type="text" className={`${inputStyle} font-bold text-xs uppercase border-none`} placeholder="Rupees..." value={amountInWords || ''} onChange={e => setAmountInWords ? setAmountInWords(e.target.value) : null} />
                 </div>
 
                 <div className="mt-3">
                   <p className="text-[11px] text-blue-800 mb-1 font-bold uppercase">Terms & Conditions:</p>
-                  <textarea className="w-full bg-transparent outline-none border border-dashed border-gray-300 focus:border-blue-800 print:border-none text-[11px] text-gray-600 resize-none h-12 leading-tight" value={terms} onChange={e => setTerms(e.target.value)} />
+                  <textarea className="w-full bg-transparent outline-none border border-dashed border-gray-300 focus:border-blue-800 print:border-none text-[11px] text-gray-600 resize-none h-12 leading-tight py-1" value={terms} onChange={e => setTerms(e.target.value)} />
                 </div>
               </div>
               
