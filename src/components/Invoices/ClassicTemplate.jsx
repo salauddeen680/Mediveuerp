@@ -41,20 +41,20 @@ const ClassicTemplate = ({
     pdf.save(`${invoiceDetails.invoiceNumber || 'Bill'}.pdf`);
   };
 
-  // 🔥 THE MARG ERP FIX: Koi border nahi. PDF mein ekdum clean aayega. Text bilkul nahi katega. 🔥
-  const inputStyle = "w-full outline-none bg-transparent text-black border-none hover:bg-gray-100 focus:bg-blue-50 font-bold px-1 h-6";
+  // 🔥 Strict Input Style: Fixed padding, no height lock taaki text na kate 🔥
+  const inputStyle = "w-full outline-none bg-transparent text-black border-none hover:bg-gray-100 focus:bg-blue-50 font-bold px-1 py-0.5";
 
   return (
     <div className="w-full">
       {/* ACTION BUTTONS */}
       <div className="max-w-[210mm] mx-auto mb-4 flex flex-wrap justify-center sm:justify-end gap-3 print:hidden">
-        <button onClick={handlePrint} className="flex items-center bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded shadow font-bold text-sm cursor-pointer transition-all">
+        <button onClick={handlePrint} className="flex items-center bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded shadow font-bold text-sm cursor-pointer">
           <Printer size={16} className="mr-2" /> Print
         </button>
-        <button onClick={handleShare} className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow font-bold text-sm cursor-pointer transition-all">
+        <button onClick={handleShare} className="flex items-center bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow font-bold text-sm cursor-pointer">
           <Share2 size={16} className="mr-2" /> Share
         </button>
-        <button onClick={handleDownloadPDF} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow font-bold text-sm cursor-pointer transition-all">
+        <button onClick={handleDownloadPDF} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow font-bold text-sm cursor-pointer">
           <Download size={16} className="mr-2" /> Save PDF
         </button>
       </div>
@@ -69,102 +69,105 @@ const ClassicTemplate = ({
         }
       `}</style>
 
-      {/* MOBILE RESPONSIVE SCROLL */}
+      {/* HORIZONTAL SCROLL WRAPPER */}
       <div id="classic-invoice-wrapper" className="w-full overflow-x-auto pb-4 print:pb-0 scrollbar-thin scrollbar-thumb-gray-400">
         
-        {/* 🔥 STRICT MARG ERP GRID CONTAINER 🔥 */}
+        {/* 🔥 MAIN INVOICE CONTAINER 🔥 */}
         <div id="classic-invoice" ref={invoiceRef} className="min-w-[800px] max-w-[210mm] mx-auto bg-white text-black border-2 border-black flex flex-col" style={{ minHeight: '1050px' }}>
           
-          {/* 1. HEADER STRICT GRID */}
-          <div className="flex border-b-2 border-black">
-            {/* Logo Box */}
-            <div className="w-1/4 p-2 border-r-2 border-black flex items-center justify-center">
+          {/* 1. HEADER - FIXED LOGO SIZE & ALIGNMENT */}
+          <div className="flex border-b-2 border-black relative">
+            {/* Logo Box - Locked Height */}
+            <div className="w-[20%] p-2 border-r-2 border-black flex items-center justify-center">
               {logo ? (
-                <img src={logo} alt="Store Logo" className="max-h-20 max-w-full object-contain" />
+                <img src={logo} alt="Store Logo" className="h-[60px] w-auto object-contain" />
               ) : (
                 <div className="text-xl font-bold">LOGO</div>
               )}
             </div>
             
             {/* Store Details Center Box */}
-            <div className="w-1/2 p-2 flex flex-col items-center justify-center text-center">
-              <div className="bg-black text-white px-4 py-1 text-xs font-bold uppercase tracking-widest mb-1 print:border print:border-black print:text-black print:bg-white">
+            <div className="w-[60%] p-2 flex flex-col items-center justify-center text-center relative pt-6">
+              {/* Tax Invoice Badge - Fixed position */}
+              <div className="bg-black text-white px-4 py-0.5 text-[11px] font-bold uppercase tracking-widest absolute top-0 rounded-b-md print:border print:border-black print:text-black print:bg-white">
                 Tax Invoice
               </div>
-              <h1 className="text-3xl font-black uppercase text-black leading-tight">{storeSettings.storeName}</h1>
-              <p className="text-xs font-bold mt-1 uppercase text-black">{storeSettings.address}</p>
-              <p className="text-xs font-bold text-black mt-1">Contact: {storeSettings.phone}</p>
+              <h1 className="text-3xl font-black uppercase text-black leading-none mb-1">{storeSettings.storeName}</h1>
+              <p className="text-xs font-bold uppercase text-black">{storeSettings.address}</p>
+              <p className="text-xs font-bold text-black mt-0.5">Contact: {storeSettings.phone}</p>
             </div>
 
-            {/* GSTIN & DL Box */}
-            <div className="w-1/4 p-2 border-l-2 border-black flex flex-col justify-center">
-              <div className="text-xs font-bold text-gray-500 text-right mb-2 print:hidden" data-html2canvas-ignore="true">Original for Buyer</div>
-              <p className="text-xs font-bold text-black">GSTIN: <span className="font-extrabold">{storeSettings.gstin}</span></p>
-              <p className="text-xs font-bold text-black mt-1">D.L. No: <span className="font-extrabold">{storeSettings.dlNumber}</span></p>
+            {/* GSTIN Box */}
+            <div className="w-[20%] p-2 border-l-2 border-black flex flex-col justify-center">
+              <div className="text-[10px] font-bold text-gray-500 text-right mb-2 print:hidden" data-html2canvas-ignore="true">Original for Buyer</div>
+              <p className="text-xs font-bold text-black">GSTIN:</p>
+              <p className="text-sm font-extrabold text-black mb-1">{storeSettings.gstin}</p>
+              <p className="text-xs font-bold text-black">D.L. No:</p>
+              <p className="text-xs font-extrabold text-black">{storeSettings.dlNumber}</p>
             </div>
           </div>
 
-          {/* 2. INVOICE META STRICT GRID */}
+          {/* 2. INVOICE META DETAILS */}
           <div className="grid grid-cols-2 border-b-2 border-black text-xs">
-            <div className="p-2 border-r-2 border-black grid grid-cols-[100px_1fr] gap-y-2 items-center">
-              <span className="font-bold">Invoice No:</span> 
+            <div className="p-2 border-r-2 border-black grid grid-cols-[90px_1fr] gap-y-1 items-center">
+              <span className="font-bold text-gray-800">Invoice No:</span> 
               <input type="text" className={inputStyle} value={invoiceDetails.invoiceNumber} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceNumber: e.target.value})} />
               
-              <span className="font-bold">Invoice Date:</span> 
+              <span className="font-bold text-gray-800">Invoice Date:</span> 
               <input type="date" className={inputStyle} value={invoiceDetails.invoiceDate} onChange={e => setInvoiceDetails({...invoiceDetails, invoiceDate: e.target.value})} />
               
-              <span className="font-bold">State:</span> 
+              <span className="font-bold text-gray-800">State:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={invoiceDetails.stateCode} onChange={e => setInvoiceDetails({...invoiceDetails, stateCode: e.target.value})} />
             </div>
             
-            <div className="p-2 grid grid-cols-[100px_1fr] gap-y-2 items-center">
-              <span className="font-bold">PAN NO.:</span> 
+            <div className="p-2 grid grid-cols-[90px_1fr] gap-y-1 items-center">
+              <span className="font-bold text-gray-800">PAN NO.:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={invoiceDetails.panNo} onChange={e => setInvoiceDetails({...invoiceDetails, panNo: e.target.value})} />
               
-              <span className="font-bold underline col-span-2 mt-1">SHIPPED TO PARTY:</span>
+              <span className="font-bold underline col-span-2 mt-1 mb-1 text-[13px]">SHIPPED TO PARTY:</span>
               
-              <span className="font-bold">GSTIN:</span> 
+              <span className="font-bold text-gray-800">GSTIN:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={invoiceDetails.shippedGstin} onChange={e => setInvoiceDetails({...invoiceDetails, shippedGstin: e.target.value})} />
             </div>
           </div>
 
-          {/* 3. BUYER DETAILS STRICT GRID */}
+          {/* 3. BUYER DETAILS */}
           <div className="grid grid-cols-2 border-b-2 border-black text-xs">
-            <div className="p-2 border-r-2 border-black grid grid-cols-[80px_1fr] gap-y-2 items-center">
-              <span className="font-bold underline col-span-2 mb-1">Details Of Receiver (Billed to)</span>
+            <div className="p-2 border-r-2 border-black grid grid-cols-[70px_1fr] gap-y-1 items-center">
+              <span className="font-bold underline col-span-2 mb-1 text-[13px]">Details Of Receiver (Billed to)</span>
               
-              <span className="font-bold">Name:</span> 
+              <span className="font-bold text-gray-800">Name:</span> 
               <input type="text" className={`uppercase text-[14px] ${inputStyle}`} value={buyerDetails.name} onChange={e => setBuyerDetails({...buyerDetails, name: e.target.value})} />
               
-              <span className="font-bold">Address:</span> 
+              <span className="font-bold text-gray-800">Address:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={buyerDetails.address} onChange={e => setBuyerDetails({...buyerDetails, address: e.target.value})} />
               
-              <span className="font-bold">GSTIN:</span> 
+              <span className="font-bold text-gray-800">GSTIN:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={buyerDetails.gstin} onChange={e => setBuyerDetails({...buyerDetails, gstin: e.target.value})} />
               
-              <span className="font-bold">State:</span> 
+              <span className="font-bold text-gray-800">State:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={buyerDetails.state} onChange={e => setBuyerDetails({...buyerDetails, state: e.target.value})} />
             </div>
             
-            <div className="p-2 grid grid-cols-[100px_1fr] gap-y-2 items-start">
-              <span className="font-bold underline col-span-2 mb-1">Transportation Details</span>
+            <div className="p-2 grid grid-cols-[90px_1fr] gap-y-1 items-start">
+              <span className="font-bold underline col-span-2 mb-1 text-[13px]">Transportation Details</span>
               
-              <span className="font-bold">Transporter:</span> 
+              <span className="font-bold text-gray-800">Transporter:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={buyerDetails.transportParty} onChange={e => setBuyerDetails({...buyerDetails, transportParty: e.target.value})} />
               
-              <span className="font-bold">Veh/GSTIN:</span> 
+              <span className="font-bold text-gray-800">Veh/GSTIN:</span> 
               <input type="text" className={`uppercase ${inputStyle}`} value={buyerDetails.transportGstin} onChange={e => setBuyerDetails({...buyerDetails, transportGstin: e.target.value})} />
               
               <div className="col-span-2 grid grid-cols-[60px_1fr_40px_1fr] gap-2 items-center mt-2">
-                <span className="font-bold">L.R No:</span> 
+                <span className="font-bold text-gray-800">L.R No:</span> 
                 <input type="text" className={`uppercase ${inputStyle}`} value={buyerDetails.lrNo} onChange={e => setBuyerDetails({...buyerDetails, lrNo: e.target.value})} />
-                <span className="font-bold">Date:</span> 
+                <span className="font-bold text-gray-800">Date:</span> 
                 <input type="date" className={inputStyle} value={buyerDetails.lrDate} onChange={e => setBuyerDetails({...buyerDetails, lrDate: e.target.value})} />
               </div>
             </div>
           </div>
 
-          {/* 4. ITEMS TABLE STRICT GRID */}
+          {/* 4. ITEMS TABLE */}
           <div className="flex-grow flex flex-col relative text-black">
             <table className="w-full text-xs text-center border-collapse">
               <thead className="border-b-2 border-black font-extrabold bg-gray-100 uppercase tracking-tight">
@@ -177,9 +180,9 @@ const ClassicTemplate = ({
                   <th className="border-r border-black p-1.5 w-16">Rate</th>
                   <th className="border-r border-black p-1.5 w-20">Taxable</th>
                   <th className="border-r border-black p-1.5 w-10">DIS%</th>
-                  <th className="border-r border-black p-1.5 w-16">DIS Amt</th>
+                  <th className="border-r border-black p-1.5 w-14">DIS Amt</th>
                   <th className="border-r border-black p-1.5 w-10">GST%</th>
-                  <th className="border-r border-black p-1.5 w-16">GST Amt</th>
+                  <th className="border-r border-black p-1.5 w-14">GST Amt</th>
                   <th className="p-1.5 w-24">Net Amt</th>
                 </tr>
               </thead>
@@ -193,7 +196,7 @@ const ClassicTemplate = ({
 
                   return (
                     <tr key={item.id} className="border-b border-gray-300 group hover:bg-gray-50 align-top">
-                      <td className="border-r border-black p-1 relative font-bold">
+                      <td className="border-r border-black p-1 relative font-bold pt-1.5">
                         {index + 1}
                         {items.length > 1 && (
                           <button onClick={() => removeRow(index)} className="absolute -left-6 top-1 text-red-500 opacity-0 group-hover:opacity-100 print:hidden cursor-pointer" data-html2canvas-ignore="true">
@@ -202,15 +205,15 @@ const ClassicTemplate = ({
                         )}
                       </td>
                       <td className="border-r border-black p-1"><input type="text" className={`text-center uppercase ${inputStyle}`} value={item.code} onChange={(e) => handleItemChange(index, 'code', e.target.value)} /></td>
-                      <td className="border-r border-black p-1"><input type="text" className={`text-left uppercase ${inputStyle}`} placeholder="Type name..." value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} /></td>
+                      <td className="border-r border-black p-1 pl-2"><input type="text" className={`text-left uppercase ${inputStyle}`} placeholder="Type name..." value={item.description} onChange={(e) => handleItemChange(index, 'description', e.target.value)} /></td>
                       <td className="border-r border-black p-1"><input type="text" className={`text-center ${inputStyle}`} value={item.hsn} onChange={(e) => handleItemChange(index, 'hsn', e.target.value)} /></td>
                       <td className="border-r border-black p-1"><input type="number" className={`text-center ${inputStyle}`} value={item.qty || ''} onChange={(e) => handleItemChange(index, 'qty', e.target.value)} /></td>
                       <td className="border-r border-black p-1"><input type="number" className={`text-right ${inputStyle}`} value={item.rate || ''} onChange={(e) => handleItemChange(index, 'rate', e.target.value)} /></td>
-                      <td className="border-r border-black p-1 text-right font-semibold pt-1.5">{baseAmount.toFixed(2)}</td>
+                      <td className="border-r border-black p-1 text-right font-semibold pt-1.5 pr-1">{baseAmount.toFixed(2)}</td>
                       <td className="border-r border-black p-1"><input type="number" className={`text-center ${inputStyle}`} value={item.disPercent || ''} onChange={(e) => handleItemChange(index, 'disPercent', e.target.value)} /></td>
-                      <td className="border-r border-black p-1 text-right pt-1.5">{disAmt > 0 ? disAmt.toFixed(2) : ''}</td>
+                      <td className="border-r border-black p-1 text-right pt-1.5 pr-1">{disAmt > 0 ? disAmt.toFixed(2) : ''}</td>
                       <td className="border-r border-black p-1"><input type="number" className={`text-center ${inputStyle}`} value={item.gstPercent || ''} onChange={(e) => handleItemChange(index, 'gstPercent', e.target.value)} /></td>
-                      <td className="border-r border-black p-1 text-right pt-1.5">{gstAmt > 0 ? gstAmt.toFixed(2) : ''}</td>
+                      <td className="border-r border-black p-1 text-right pt-1.5 pr-1">{gstAmt > 0 ? gstAmt.toFixed(2) : ''}</td>
                       <td className="p-1 text-right font-bold pr-2 pt-1.5">{totalAmount.toFixed(2)}</td>
                     </tr>
                   );
@@ -226,7 +229,7 @@ const ClassicTemplate = ({
             </div>
           </div>
 
-          {/* 5. FOOTER STRICT GRID */}
+          {/* 5. FOOTER */}
           <div className="grid grid-cols-12 border-t-2 border-black text-xs mt-auto w-full bg-white">
             
             {/* LEFT FOOTER */}
@@ -234,11 +237,11 @@ const ClassicTemplate = ({
               
               <div className="p-2 border-b border-black">
                 <div className="font-bold underline mb-1">Bank Details</div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <div className="flex items-center"><span className="font-bold w-16">Bank:</span> <input type="text" className={`uppercase ${inputStyle}`} placeholder="Bank Name" value={bankDetails.bankName} onChange={e => setBankDetails({...bankDetails, bankName: e.target.value})} /></div>
-                  <div className="flex items-center"><span className="font-bold w-16">Branch:</span> <input type="text" className={`uppercase ${inputStyle}`} placeholder="Branch" value={bankDetails.branch} onChange={e => setBankDetails({...bankDetails, branch: e.target.value})} /></div>
-                  <div className="flex items-center"><span className="font-bold w-16">A/c No:</span> <input type="text" className={`uppercase ${inputStyle}`} placeholder="Account No" value={bankDetails.accountNo} onChange={e => setBankDetails({...bankDetails, accountNo: e.target.value})} /></div>
-                  <div className="flex items-center"><span className="font-bold w-16">IFSC:</span> <input type="text" className={`uppercase ${inputStyle}`} placeholder="IFSC Code" value={bankDetails.ifsc} onChange={e => setBankDetails({...bankDetails, ifsc: e.target.value})} /></div>
+                <div className="grid grid-cols-[60px_1fr_60px_1fr] gap-x-2 gap-y-1 items-center">
+                  <span className="font-bold">Bank:</span> <input type="text" className={`uppercase ${inputStyle}`} placeholder="Bank Name" value={bankDetails.bankName} onChange={e => setBankDetails({...bankDetails, bankName: e.target.value})} />
+                  <span className="font-bold">Branch:</span> <input type="text" className={`uppercase ${inputStyle}`} placeholder="Branch" value={bankDetails.branch} onChange={e => setBankDetails({...bankDetails, branch: e.target.value})} />
+                  <span className="font-bold">A/c No:</span> <input type="text" className={`uppercase font-extrabold ${inputStyle}`} placeholder="Account No" value={bankDetails.accountNo} onChange={e => setBankDetails({...bankDetails, accountNo: e.target.value})} />
+                  <span className="font-bold">IFSC:</span> <input type="text" className={`uppercase font-extrabold ${inputStyle}`} placeholder="IFSC Code" value={bankDetails.ifsc} onChange={e => setBankDetails({...bankDetails, ifsc: e.target.value})} />
                 </div>
               </div>
               
@@ -249,13 +252,13 @@ const ClassicTemplate = ({
 
               <div className="p-2 text-[11px]">
                 <div className="font-bold underline mb-1">Terms & conditions</div>
-                <textarea className="w-full outline-none bg-transparent resize-none h-12 text-black font-medium leading-tight" value={terms} onChange={e => setTerms(e.target.value)} />
+                <textarea className="w-full outline-none bg-transparent resize-none h-10 text-black font-medium leading-tight" value={terms} onChange={e => setTerms(e.target.value)} />
               </div>
             </div>
 
             {/* RIGHT FOOTER (TOTALS) */}
             <div className="col-span-4 flex flex-col">
-              <div className="p-2 border-b-2 border-black font-bold text-[12px] flex-grow">
+              <div className="p-2 border-b border-black font-bold text-[12px] flex-grow">
                 <div className="flex justify-between mb-1"><span>Total Taxable Value</span> <span>{totals.taxableValue.toFixed(2)}</span></div>
                 <div className="flex justify-between mb-1 text-red-600"><span>Less: Discount</span> <span>- {totals.discount.toFixed(2)}</span></div>
                 <div className="flex justify-between mb-1"><span>Add: SGST</span> <span>+ {totals.sgst.toFixed(2)}</span></div>
@@ -266,8 +269,8 @@ const ClassicTemplate = ({
                 <span>Grand Total</span> 
                 <span>₹{totals.grandTotal.toFixed(2)}</span>
               </div>
-              <div className="p-2 flex-grow flex flex-col items-center justify-end relative h-24">
-                <span className="absolute top-2 right-2 text-[10px] font-bold text-black uppercase">For {storeSettings.storeName}</span>
+              <div className="p-2 flex-grow flex flex-col items-center justify-between relative min-h-[80px]">
+                <span className="text-[10px] font-bold text-black uppercase text-right w-full">For {storeSettings.storeName}</span>
                 <span className="font-bold border-t border-black pt-1 px-4 text-black text-[11px] w-full text-center mt-auto">Authorised Signatory</span>
               </div>
             </div>
