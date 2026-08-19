@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-// 🔥 YAHAN 'Printer' ICON BHI IMPORT KIYA HAI 🔥
+// 🔥 YAHAN getDocs, query aur where IMPORT KIYE HAIN 🔥
+import { collection, addDoc, doc, updateDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import { Save, Lock, ShieldAlert, LayoutTemplate, Printer } from 'lucide-react';
 import logo from '../logo.png';
 
@@ -175,6 +175,7 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
       };
 
       if (editBill && editBill.id) {
+        // Agar bill edit ho raha hai
         const billRef = doc(db, 'users', user.uid, 'bills', editBill.id);
         await updateDoc(billRef, {
           ...billDataToSave,
@@ -182,11 +183,38 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
         });
         showToast('Invoice Updated Successfully!');
       } else {
+        // Agar naya bill ban raha hai
         await addDoc(collection(db, 'users', user.uid, 'bills'), {
           ...billDataToSave,
           createdAt: serverTimestamp()
         });
         showToast('New Invoice Saved Successfully!');
+
+        // 🔥🔥🔥 INVENTORY AUTO-DEDUCTION LOGIC SHURU 🔥🔥🔥
+        // Ye code har item ko check karega aur inventory se minus karega
+        for (const item of items) {
+          if (item.description && item.qty > 0) {
+            // Inventory mein dawai ka naam dhoondho
+            const inventoryRef = collection(db, 'users', user.uid, 'inventory');
+            const q = query(inventoryRef, where('name', '==', item.description));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+              // Agar dawai mil gayi, toh uski purani quantity nikalo
+              const invDoc = querySnapshot.docs[0];
+              const currentQty = invDoc.data().qty || 0;
+              
+              // Nayi quantity calculate karo (minus karke)
+              const newQty = currentQty - Number(item.qty);
+              
+              // Database update kar do (agar zero se kam ho, toh 0 set karo)
+              await updateDoc(doc(db, 'users', user.uid, 'inventory', invDoc.id), {
+                qty: newQty < 0 ? 0 : newQty 
+              });
+            }
+          }
+        }
+        // 🔥🔥🔥 INVENTORY AUTO-DEDUCTION LOGIC KHATAM 🔥🔥🔥
       }
       
       if (setBillToEdit) setBillToEdit(null); 
@@ -250,7 +278,6 @@ export default function BillingPOS({ data, user, showToast, editBill, setBillToE
           </select>
         </div>
 
-        {/* 🔥 YAHAN PRINT BUTTON ADD KIYA HAI 🔥 */}
         <div className="flex gap-3 w-full sm:w-auto">
           <button 
             onClick={() => window.print()} 
