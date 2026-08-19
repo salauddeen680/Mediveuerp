@@ -4,7 +4,7 @@ import {
   Settings, LogOut, Plus, Edit, Trash2, Search, Printer, 
   Download, Activity, CheckCircle, AlertTriangle, Shield, 
   Database, Check, ChevronRight, TrendingUp, Share2, Upload, 
-  ShieldCheck, Clock, ArrowRight 
+  ShieldCheck, Clock, ArrowRight, Zap, Smartphone 
 } from 'lucide-react';
 
 import { auth, db } from './firebase';
@@ -27,6 +27,9 @@ import SubscriptionPlans from './components/SubscriptionPlans';
 import Features from './components/Features';
 import Inventory from './components/Inventory';
 import Customers from './components/Customers';
+import SmartAlerts from './components/SmartAlerts';
+import Suppliers from './components/Suppliers';
+import PurchaseEntry from './components/PurchaseEntry';
 
 // Utils
 import { generateZipBackup } from './utils/backupExporter';
@@ -322,10 +325,7 @@ function PublicWebsite({ navigate, showToast }) {
   const renderContent = () => {
     switch (activeTab) {
       case 'home': return <HomeView setActiveTab={setActiveTab} showToast={showToast} />;
-      
-      // 🔥 Yahan par Naya Features Page Link Ho Gaya Hai 🔥
       case 'features': return <Features navigate={navigate} />; 
-      
       case 'pricing': return <PricingView setActiveTab={setActiveTab} showToast={showToast} />;
       case 'contact': return <ContactView />;
       case 'login': return <LoginView navigate={navigate} showToast={showToast} setActiveTab={setActiveTab} />;
@@ -360,17 +360,79 @@ function PublicWebsite({ navigate, showToast }) {
   );
 }
 
+// 🔥 PHOTO KE HISAB SE HOME PAGE KA NAYA DESIGN YAHAN HAI 🔥
 const HomeView = ({ setActiveTab, showToast }) => (
   <>
-    <div className="max-w-7xl mx-auto px-4 pt-24 pb-20 text-center">
-      <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight mb-8">
-        Smart Wholesale Billing & ERP for <span className="text-teal-400">Medical Stores</span>
+    {/* Top Hero Section */}
+    <div className="max-w-7xl mx-auto px-4 pt-24 pb-16 text-center">
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-semibold mb-6">
+        <ShieldCheck size={14} /> Trusted by Medical Stores & Wholesalers
+      </div>
+      <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight mb-6 leading-tight">
+        Smart Billing & ERP for <br/>
+        <span className="text-teal-400 bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-blue-500">Modern Pharmacies</span>
       </h1>
-      <p className="text-lg md:text-xl text-slate-400 max-w-3xl mx-auto mb-10">
-        Manage inventory with batch & expiry tracking, generate professional GST invoices, and grow your pharma business securely.
+      <p className="text-base md:text-lg text-slate-400 max-w-2xl mx-auto mb-10">
+        Puraana software chhodiye! Mediveu ERP se billing karein fast, inventory track karein smart, aur business ko le jayein cloud par.
       </p>
-      <div className="flex justify-center gap-4 flex-wrap">
-        <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg w-full sm:w-auto">Create Account / 7 Days Free Trial</Button>
+      <div className="flex flex-col items-center gap-3">
+        <Button onClick={() => setActiveTab('register')} className="px-8 py-4 text-lg w-full sm:w-auto shadow-teal-500/20 shadow-lg group">
+          Start 7-Days Free Trial <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={20}/>
+        </Button>
+        <span className="text-xs text-slate-500">*No credit card required. Setup in 2 minutes.</span>
+      </div>
+    </div>
+
+    {/* Features Grid (Aapki Image ke hisaab se) */}
+    <div className="max-w-7xl mx-auto px-4 py-16">
+      <div className="text-center mb-12">
+        <h2 className="text-3xl font-bold text-white mb-4">Why Choose Mediveu ERP?</h2>
+        <div className="w-16 h-1 bg-teal-500 mx-auto rounded"></div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-6 max-w-5xl mx-auto">
+         <Card className="bg-slate-900 border-slate-800 hover:border-teal-500/30 transition-colors">
+           <div className="w-12 h-12 rounded-lg bg-yellow-500/10 flex items-center justify-center mb-4 text-yellow-500">
+             <Zap size={24} />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">Fast POS Billing</h3>
+           <p className="text-slate-400 text-sm">Barcode scanner support ke sath 1 second mein GST bill banayein aur print karein.</p>
+         </Card>
+         <Card className="bg-slate-900 border-slate-800 hover:border-teal-500/30 transition-colors">
+           <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center mb-4 text-red-500">
+             <Clock size={24} />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">Smart Expiry Alerts</h3>
+           <p className="text-slate-400 text-sm">Dawai expire hone se 3 mahine pehle hi alert, taaki aapka ek rupaye ka bhi nuksan na ho.</p>
+         </Card>
+         <Card className="bg-slate-900 border-slate-800 hover:border-teal-500/30 transition-colors">
+           <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4 text-blue-500">
+             <FileText size={24} />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">CA-Ready GST Reports</h3>
+           <p className="text-slate-400 text-sm">GSTR-1, GSTR-3B aur poore mahine ki sale report ek click mein Excel/PDF format mein.</p>
+         </Card>
+         <Card className="bg-slate-900 border-slate-800 hover:border-teal-500/30 transition-colors">
+           <div className="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-4 text-emerald-500">
+             <CheckCircle size={24} />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">Real-time Inventory</h3>
+           <p className="text-slate-400 text-sm">Har bill banne par stock automatic kam hoga. Low stock par auto-alert.</p>
+         </Card>
+         <Card className="bg-slate-900 border-slate-800 hover:border-teal-500/30 transition-colors">
+           <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mb-4 text-purple-500">
+             <Database size={24} />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">100% Cloud Secure</h3>
+           <p className="text-slate-400 text-sm">Aapka data hamesha surakshit. Computer kharab ho jaye tab bhi data safe rahega.</p>
+         </Card>
+         <Card className="bg-slate-900 border-slate-800 hover:border-teal-500/30 transition-colors">
+           <div className="w-12 h-12 rounded-lg bg-teal-500/10 flex items-center justify-center mb-4 text-teal-500">
+             <Smartphone size={24} />
+           </div>
+           <h3 className="text-xl font-bold text-white mb-2">Mobile & PC Ready</h3>
+           <p className="text-slate-400 text-sm">Dukan par PC se aur ghar par Mobile se, poora business control karein.</p>
+         </Card>
       </div>
     </div>
   </>
@@ -544,30 +606,36 @@ const RegisterView = ({ navigate, showToast, setActiveTab }) => {
 function TenantDashboard({ user, navigate, currentPath, showToast, handleLogout, data }) {
   const [billToEdit, setBillToEdit] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeSupplier, setActiveSupplier] = useState(null);
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
     { id: 'billing', label: 'Billing / POS', icon: <CreditCard size={20} /> },
     { id: 'medicines', label: 'Inventory', icon: <Package size={20} /> },
     { id: 'customers', label: 'Customers', icon: <Users size={20} /> },
+    { id: 'suppliers', label: 'Suppliers', icon: <Truck size={20} /> },
     { id: 'reports', label: 'Reports', icon: <FileText size={20} /> },
     { id: 'subscription', label: 'Upgrade Plan', icon: <Shield size={20} className="text-teal-400" /> },     
     { id: 'settings', label: 'Settings & Backup', icon: <Settings size={20} /> },
   ];
 
+  const handleCustomNav = (path, extraData) => {
+    if(path === 'purchaseEntry') setActiveSupplier(extraData);
+    navigate('tenant', path);
+  };
+
   const renderContent = () => {
     switch (currentPath) {
-      case 'dashboard': return <TenantDashboardView data={data} navigate={navigate} />;
+      case 'dashboard': return <TenantDashboardView data={data} navigate={navigate} user={user} />;
       case 'billing': return <BillingPOS data={data} showToast={showToast} user={user} editBill={billToEdit} setBillToEdit={setBillToEdit} />;
-      
-      // 🔥 Yahan par Nayi Inventory & Customers File Link Ho Gayi Hain 🔥
       case 'medicines': return <Inventory user={user} />;
       case 'customers': return <Customers user={user} />;
-      
+      case 'suppliers': return <Suppliers user={user} onNavigate={handleCustomNav} />;
+      case 'purchaseEntry': return <PurchaseEntry user={user} selectedSupplier={activeSupplier} onNavigate={handleCustomNav} />;
       case 'reports': return <Reports data={data} onOpenBill={(bill) => { setBillToEdit(bill); navigate('tenant', 'billing'); }} />;
       case 'subscription': return <SubscriptionPlans user={user} showToast={showToast} navigate={navigate} />;
       case 'settings': return <TenantSettingsView data={data} showToast={showToast} user={user} />;
-      default: return <TenantDashboardView data={data} navigate={navigate} />;
+      default: return <TenantDashboardView data={data} navigate={navigate} user={user} />;
     }
   };
 
@@ -728,7 +796,7 @@ function PlanStatusCard({ data, navigate }) {
   );
 }
 
-function TenantDashboardView({ data, navigate }) {
+function TenantDashboardView({ data, navigate, user }) {
   const medicines = data?.medicines || [];
   const bills = data?.bills || [];
   const totalSales = bills.reduce((acc, b) => acc + Number(b.totals?.grandTotal || b.total || 0), 0);
@@ -742,6 +810,9 @@ function TenantDashboardView({ data, navigate }) {
         <Card><div className="text-slate-400 text-sm">Total Invoices</div><div className="text-2xl md:text-3xl font-bold text-blue-400 mt-1">{bills.length}</div></Card>
         <Card><div className="text-slate-400 text-sm">Total Medicines</div><div className="text-2xl md:text-3xl font-bold text-teal-400 mt-1">{medicines.length}</div></Card>
       </div>
+
+      {/* 🔥 SMART ALERTS YAHAN LINK HO GAYA HAI 🔥 */}
+      <SmartAlerts user={user} onNavigate={(path) => navigate('tenant', path)} />
     </div>
   );
 }
