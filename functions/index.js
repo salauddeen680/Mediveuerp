@@ -79,15 +79,34 @@ exports.getReferralDashboard = onCall(async (request) => {
     db.doc(`referralStats/${uid}`).get(),
     db.collection('referrals').where('referrerUid', '==', uid).limit(100).get(),
   ]);
-  const referrals = referralsSnap.docs.map((entry) => {
+  const now = Date.now();
+  const referredUsers = referralsSnap.docs.length
+    ? await db.getAll(...referralsSnap.docs.map((entry) => db.doc(`users/${entry.get('referredUserId')}`)))
+    : [];
+  const referrals = referralsSnap.docs.map((entry, index) => {
     const data = entry.data();
+    const referredUser = referredUsers[index]?.exists ? referredUsers[index].data() : {};
+    const currentPlan = String(referredUser.plan || '');
+    const activeMonthlySubscriptionEndsAt = millis(referredUser.subscriptionEndsAt);
+    const isActiveMonthly = data.status === 'qualified'
+      && referredUser.status === 'Active'
+      && referredUser.hasPaidSubscription === true
+      && /month|249/i.test(currentPlan)
+      && activeMonthlySubscriptionEndsAt > now;
     return {
       id: data.referredUserId,
       status: data.status,
       qualifiedAt: data.qualifiedAt?.toMillis?.() || null,
+      isActiveMonthly,
+      activeMonthlySubscriptionEndsAt: activeMonthlySubscriptionEndsAt || null,
     };
   });
-  return { stats: statsSnap.exists ? statsSnap.data() : {}, referrals };
+  const storedStats = statsSnap.exists ? statsSnap.data() : {};
+  const activeMonthlySubscribers = referrals.filter((referral) => referral.isActiveMonthly).length;
+  return {
+    stats: { ...storedStats, activeMonthlySubscribers, rewardGranted: Boolean(storedStats.rewardGranted) },
+    referrals,
+  };
 });
 
 exports.createSubscriptionOrder = onCall({ secrets: [razorpayKeyId, razorpayKeySecret] }, async (request) => {
@@ -177,41 +196,51 @@ exports.confirmSubscriptionPayment = onCall({ secrets: [razorpayKeyId, razorpayK
     }, { merge: true });
 
     let referralReward = false;
-    if (referralRef && referralSnap?.exists && userData.referredBy === referrerUid && referralSnap.get('referrerUid') === referrerUid && referralSnap.get('referredUserId') === uid && referralSnap.get('status') === 'pending' && planId === 'monthly' && referrerSnap?.exists) {
-      const qualifiedCount = Number(statsSnap?.get('qualifiedMonthly') || 0) + 1;
-      const earnedMonths = Math.floor(qualifiedCount / 3);
-      const appliedMonths = Number(statsSnap?.get('rewardMonthsApplied') || 0);
-      const monthsToApply = Math.max(0, earnedMonths - appliedMonths);
-      transaction.update(referralRef, {
-        status: 'qualified',
-        rewardEligible: true,
-        qualifyingOrderId: orderId,
-        qualifyingPaymentId: paymentId,
-        qualifiedAt: FieldValue.serverTimestamp(),
-      });
-      transaction.set(statsRef, {
-        qualifiedMonthly: qualifiedCount,
-        rewardMonthsEarned: earnedMonths,
-        rewardMonthsApplied: appliedMonths + monthsToApply,
+    const isLinkedReferral = referralRef && referralSnap?.exists
+      && userData.referredBy === referrerUid
+      && referralSnap.get('referrerUid') === referrerUid
+      && referralSnap.get('referredUserId') === uid;
+    if (isLinkedReferral) {
+      const referralUpdate = {
+        activeMonthlySubscriptionEndsAt: planId === 'monthly' ? Timestamp.fromMillis(subscriptionEndsAt) : null,
+        currentPlanId: planId,
         updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-      if (monthsToApply > 0) {
-        const referrerData = referrerSnap.data();
-        const referrerEnd = millis(referrerData.subscriptionEndsAt);
-        const referrerStart = millis(referrerData.createdAt);
-        const referrerDays = /year|2799/i.test(referrerData.plan || '') ? 365 : /month|249/i.test(referrerData.plan || '') ? 30 : 0;
-        const currentReferrerEnd = referrerEnd || (referrerDays && referrerStart ? referrerStart + referrerDays * 86400000 : 0);
-        const rewardStart = Math.max(now, currentReferrerEnd);
-        const rewardEnd = rewardStart + monthsToApply * 30 * 86400000;
-        transaction.set(referrerRef, {
-          plan: referrerData.plan && referrerData.plan !== '7 Days Free Trial' ? referrerData.plan : plans.monthly.name,
-          status: 'Active',
-          createdAt: currentReferrerEnd > now ? referrerData.createdAt : rewardStart,
-          subscriptionEndsAt: Timestamp.fromMillis(rewardEnd),
+      };
+      if (referralSnap.get('status') === 'pending' && planId === 'monthly' && referrerSnap?.exists) {
+        const qualifiedCount = Number(statsSnap?.get('qualifiedMonthly') || 0) + 1;
+        const rewardAlreadyGranted = Boolean(statsSnap?.get('rewardGranted'));
+        const shouldGrantReward = qualifiedCount === 3 && !rewardAlreadyGranted;
+        referralUpdate.status = 'qualified';
+        referralUpdate.rewardEligible = shouldGrantReward;
+        referralUpdate.qualifyingOrderId = orderId;
+        referralUpdate.qualifyingPaymentId = paymentId;
+        referralUpdate.qualifiedAt = FieldValue.serverTimestamp();
+        transaction.set(statsRef, {
+          qualifiedMonthly: qualifiedCount,
+          rewardMonthsEarned: shouldGrantReward ? 1 : Number(statsSnap?.get('rewardMonthsEarned') || 0),
+          rewardMonthsApplied: Number(statsSnap?.get('rewardMonthsApplied') || 0) + (shouldGrantReward ? 1 : 0),
+          rewardGranted: rewardAlreadyGranted || shouldGrantReward,
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
-        referralReward = true;
+        if (shouldGrantReward) {
+          const referrerData = referrerSnap.data();
+          const referrerEnd = millis(referrerData.subscriptionEndsAt);
+          const referrerStart = millis(referrerData.createdAt);
+          const referrerDays = /year|2799/i.test(referrerData.plan || '') ? 365 : /month|249/i.test(referrerData.plan || '') ? 30 : 0;
+          const currentReferrerEnd = referrerEnd || (referrerDays && referrerStart ? referrerStart + referrerDays * 86400000 : 0);
+          const rewardStart = Math.max(now, currentReferrerEnd);
+          const rewardEnd = rewardStart + 30 * 86400000;
+          transaction.set(referrerRef, {
+            plan: referrerData.plan && referrerData.plan !== '7 Days Free Trial' ? referrerData.plan : plans.monthly.name,
+            status: 'Active',
+            createdAt: currentReferrerEnd > now ? referrerData.createdAt : rewardStart,
+            subscriptionEndsAt: Timestamp.fromMillis(rewardEnd),
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+          referralReward = true;
+        }
       }
+      transaction.set(referralRef, referralUpdate, { merge: true });
     }
     return { alreadyProcessed: false, referralReward };
   });
