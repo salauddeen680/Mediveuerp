@@ -17,8 +17,9 @@ export default function ReferralCenter({ user, showToast }) {
   );
   const stats = data?.stats || {};
   const referrals = data?.referrals || [];
-  const qualified = Number(stats.qualifiedMonthly || 0);
-  const progress = qualified % 3;
+  const activeMonthly = Number(stats.activeMonthlySubscribers || 0);
+  const progress = Math.min(activeMonthly, 3);
+  const rewardGranted = Boolean(stats.rewardGranted);
   const appliedMonths = Number(stats.rewardMonthsApplied || 0);
 
   const share = async () => {
@@ -67,13 +68,13 @@ export default function ReferralCenter({ user, showToast }) {
 
         <Card className="p-5 sm:p-6 flex flex-col justify-between">
           <div className="flex items-start justify-between">
-            <div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Reward progress</p><p className="text-2xl font-extrabold text-white mt-1">{progress}<span className="text-slate-500"> / 3</span></p></div>
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active monthly subscribers</p><p className="text-2xl font-extrabold text-white mt-1">{activeMonthly}<span className="text-slate-500"> / 3</span></p></div>
             <div className="w-10 h-10 rounded-xl bg-brand-green/10 text-brand-green grid place-items-center"><Gift size={19} /></div>
           </div>
           <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden" role="progressbar" aria-label="Qualifying monthly referrals toward next reward" aria-valuemin={0} aria-valuemax={3} aria-valuenow={progress}>
             <div className="h-full rounded-full bg-brand-gradient transition-all" style={{ width: `${(progress / 3) * 100}%` }} />
           </div>
-          <p className="text-xs text-slate-400 mt-3">{3 - progress} more verified monthly {3 - progress === 1 ? 'subscription' : 'subscriptions'} to unlock one month.</p>
+          <p className="text-xs text-slate-400 mt-3">{rewardGranted ? 'Your one-time free-month reward has been unlocked.' : `${Math.max(0, 3 - progress)} more active monthly ${3 - progress === 1 ? 'subscriber' : 'subscribers'} needed to reach the goal.`}</p>
           <p className="text-xs text-brand-green mt-2">{appliedMonths} free {appliedMonths === 1 ? 'month' : 'months'} added to your plan</p>
         </Card>
       </div>
@@ -91,8 +92,8 @@ export default function ReferralCenter({ user, showToast }) {
           <ul className="divide-y divide-white/[0.06]">
             {sortedReferrals.map((referral) => (
               <li key={referral.id} className="px-5 py-3 flex items-center justify-between gap-4">
-                <div className="min-w-0"><p className="text-sm font-medium text-white truncate">Store account ending {referral.id.slice(-6)}</p><p className="text-xs text-slate-500 mt-0.5">{referral.qualifiedAt ? new Date(referral.qualifiedAt).toLocaleDateString('en-IN') : 'Waiting for monthly subscription'}</p></div>
-                <Badge tone={referral.status === 'qualified' ? 'success' : 'warning'}>{referral.status === 'qualified' ? <><Check size={12} /> Monthly paid</> : <><WalletCards size={12} /> Pending</>}</Badge>
+                <div className="min-w-0"><p className="text-sm font-medium text-white truncate">Store account ending {referral.id.slice(-6)}</p><p className="text-xs text-slate-500 mt-0.5">{referral.isActiveMonthly ? `Active through ${new Date(referral.activeMonthlySubscriptionEndsAt).toLocaleDateString('en-IN')}` : referral.qualifiedAt ? `Monthly plan qualified ${new Date(referral.qualifiedAt).toLocaleDateString('en-IN')}` : 'Waiting for monthly subscription'}</p></div>
+                <Badge tone={referral.isActiveMonthly ? 'success' : referral.status === 'qualified' ? 'info' : 'warning'}>{referral.isActiveMonthly ? <><Check size={12} /> Active monthly</> : referral.status === 'qualified' ? <><Check size={12} /> Qualified</> : <><WalletCards size={12} /> Pending</>}</Badge>
               </li>
             ))}
           </ul>
