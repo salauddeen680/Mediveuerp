@@ -1,4 +1,4 @@
-name: Build signed Android release
+name: Build Android APK
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-android-${{ github.workflow }}-${{ github.ref }}
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build-android:
-    name: Build signed release APK and AAB
+    name: Build downloadable Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -55,59 +55,27 @@ jobs:
       - name: Set up Gradle with caching
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Prepare release signing keystore
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          keystore_base64="$(printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]')"
-          if [ -z "$keystore_base64" ]; then
-            echo "Missing required GitHub Actions secret: ANDROID_KEYSTORE_BASE64 (the existing release keystore, Base64-encoded)."
-            exit 1
-          fi
-          if (( ${#keystore_base64} % 4 != 0 )) || [[ ! "$keystore_base64" =~ ^[A-Za-z0-9+/]*={0,2}$ ]]; then
-            echo "ANDROID_KEYSTORE_BASE64 is not valid Base64; the secret may have been truncated or corrupted during paste. Re-enter the existing keystore value."
-            exit 1
-          fi
-          umask 077
-          keystore_path="$RUNNER_TEMP/mediveu-release.jks"
-          if ! printf '%s' "$keystore_base64" | base64 --decode > "$keystore_path"; then
-            rm -f "$keystore_path"
-            echo "Could not decode ANDROID_KEYSTORE_BASE64; the secret may have been truncated or corrupted during paste. Re-enter the existing keystore value."
-            exit 1
-          fi
-          if [ ! -s "$keystore_path" ]; then
-            rm -f "$keystore_path"
-            echo "Decoded ANDROID_KEYSTORE_BASE64 is empty; the secret may have been truncated or corrupted during paste."
-            exit 1
-          fi
-          printf 'ANDROID_KEYSTORE_PATH=%s\n' "$keystore_path" >> "$GITHUB_ENV"
-
-      - name: Build signed release APK and Play Store AAB
+      - name: Build standard debug APK
         working-directory: android
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleRelease bundleRelease
+          ./gradlew --no-daemon --stacktrace assembleDebug
 
-      - name: Upload signed APK and Play Store bundle
+      - name: Prepare APK download asset
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Mediveu-ERP.apk
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mediveu-android-release
-          path: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/bundle/release/app-release.aab
+          name: mediveu-android-apk
+          path: Mediveu-ERP.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Remove temporary signing keystore
-        if: always()
-        run: rm -f "$RUNNER_TEMP/mediveu-release.jks"
-        
+      - name: Publish APK for website download
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: android-${{ github.run_number }}-${{ github.run_attempt }}
+        run: gh release create "$TAG_NAME" Mediveu-ERP.apk --repo "$GITHUB_REPOSITORY" --title "MEDIVEU Android APK" --notes "Debug-signed APK built from commit $GITHUB_SHA. This build does not require release keystore secrets." --latest

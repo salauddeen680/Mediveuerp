@@ -124,7 +124,7 @@ function InstallAppCard() {
       </div>
       <div className="flex flex-col sm:flex-row w-full md:w-auto gap-2 shrink-0">
         {!installed && <Button variant="secondary" className="w-full md:w-auto" onClick={install}><Download size={16} /> {showInstructions && !installPrompt ? 'Hide install steps' : 'Install web app'}</Button>}
-        {!installed && <a href="/mediveu.apk" download="Mediveu-ERP.apk" className="btn-ghost justify-center" aria-label="Download the MEDIVEU Android APK">
+        {!installed && <a href="https://github.com/alauddinjp681-sudo/Mediveuerp/releases/latest/download/Mediveu-ERP.apk" className="btn-ghost justify-center" aria-label="Download the MEDIVEU Android APK">
           <Download size={16} /> Android APK
         </a>}
       </div>
