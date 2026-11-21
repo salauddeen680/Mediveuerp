@@ -91,13 +91,27 @@ service cloud.firestore {
             || (collectionName == 'settings' && isOwnerOrManager(storeId));
         }
 
+        function workerCanUpdateOwnBill() {
+          return hasRole(storeId, ['worker'])
+            && resource.data.createdBy == request.auth.uid
+            && request.resource.data.createdBy == request.auth.uid
+            && resource.data.status in ['draft', 'final']
+            && request.resource.data.status in ['draft', 'final'];
+        }
+
+        function workerCanUpdateOwnBillTransaction() {
+          return hasRole(storeId, ['worker'])
+            && resource.data.billId is string
+            && exists(/databases/$(database)/documents/stores/$(storeId)/bills/$(resource.data.billId))
+            && get(/databases/$(database)/documents/stores/$(storeId)/bills/$(resource.data.billId)).data.createdBy == request.auth.uid
+            && request.resource.data.billId == resource.data.billId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['amount', 'customerId', 'customerName']);
+        }
+
         function roleCanUpdate() {
           return (collectionName == 'bills' && (
               isOwnerOrManager(storeId)
-              || (hasRole(storeId, ['worker'])
-                && resource.data.createdBy == request.auth.uid
-                && resource.data.status == 'draft'
-                && request.resource.data.status in ['draft', 'final'])
+              || workerCanUpdateOwnBill()
             ))
             || (collectionName == 'inventory' && (
               isOwnerOrManager(storeId)
@@ -107,7 +121,10 @@ service cloud.firestore {
                 && request.resource.data.qty < resource.data.qty)
             ))
             || (collectionName == 'customers' && isOwnerOrManager(storeId))
-            || (collectionName == 'transactions' && isOwnerOrManager(storeId))
+            || (collectionName == 'transactions' && (
+              isOwnerOrManager(storeId)
+              || workerCanUpdateOwnBillTransaction()
+            ))
             || (collectionName == 'supplier_transactions' && isOwnerOrManager(storeId))
             || (collectionName == 'suppliers' && isOwnerOrManager(storeId))
             || (collectionName == 'purchases' && isOwnerOrManager(storeId))

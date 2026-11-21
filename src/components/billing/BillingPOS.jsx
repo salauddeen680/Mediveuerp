@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { collection, doc, increment, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
-import { Save, Printer, FileDown, Share2, LayoutTemplate, FilePlus2, Lock, Eye, PencilLine, Keyboard, Mic, PenLine } from 'lucide-react';
+import { Save, Printer, FileDown, Share2, LayoutTemplate, FilePlus2, Lock, Eye, PencilLine, Keyboard, Mic, PenLine, FileText } from 'lucide-react';
 import { db } from '../../firebase';
 import { storeCollection, storeDocument } from '../../lib/storeAccess';
 import { Button, Card, Field, cn } from '../ui';
@@ -24,15 +24,20 @@ const SAMPLE_ITEMS = [
   { ...emptyItem(), description: 'ORS SACHET ORANGE', hsn: '2106', batch: 'OR774', expiry: '03/27', mrp: 22, qty: 20, rate: 16, gstPercent: 5 },
 ];
 
-export default function BillingPOS({ user, userData, editBill, onClearEdit, showToast, bills, inventory, customers, navigate }) {
+export default function BillingPOS({ user, userData, editBill, onOpenBill, onClearEdit, showToast, bills, inventory, customers, navigate }) {
   const general = userData?.settings?.general || {};
   const invoiceSettings = userData?.settings?.invoice || {};
   const prefix = invoiceSettings.prefix || 'INV';
   const locked = isPlanBlocked(userData);
   const role = user?.role || 'worker';
   const [savedId, setSavedId] = useState(null);
+  const [showMyBills, setShowMyBills] = useState(false);
   const savedBill = bills.find((bill) => bill.id === savedId) || editBill;
-  const canWrite = role !== 'accountant' && !(role === 'worker' && savedId && savedBill?.status !== 'draft');
+  const myBills = useMemo(() => bills
+    .filter((bill) => bill.createdBy === user?.uid)
+    .sort((a, b) => (b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0) - (a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0))
+    .slice(0, 10), [bills, user?.uid]);
+  const canWrite = role !== 'accountant' && (!savedId || role !== 'worker' || savedBill?.createdBy === user?.uid);
 
   const [templateId, setTemplateId] = useState(invoiceSettings.defaultTemplate || 'pharma');
   const [accent, setAccent] = useState(invoiceSettings.accent || ACCENTS[0]);
@@ -425,12 +430,36 @@ export default function BillingPOS({ user, userData, editBill, onClearEdit, show
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {role === 'worker' && <Button variant="secondary" onClick={() => setShowMyBills((isOpen) => !isOpen)} aria-expanded={showMyBills}>
+            <FileText size={16} /> My bills ({myBills.length})
+          </Button>}
           <Button variant="secondary" onClick={() => setPickerOpen(true)}><LayoutTemplate size={16} /> {template.name}</Button>
           <Button variant="secondary" onClick={resetBill}><FilePlus2 size={16} /> New</Button>
           {canWrite && <Button variant="secondary" onClick={handleSaveDraft} disabled={Boolean(savedId && savedBill?.status !== 'draft')}><Save size={16} /> Save draft</Button>}
           {canWrite && <Button onClick={handleSave}><Save size={16} /> {savedId ? 'Complete / Update' : 'Complete sale'}</Button>}
         </div>
       </div>
+
+      {role === 'worker' && showMyBills && <Card className="mb-4 p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Your recent bills</h2>
+            <p className="text-xs text-slate-400 mt-1">You can reopen and edit bills created by your account.</p>
+          </div>
+          <Button variant="secondary" onClick={() => setShowMyBills(false)}>Close</Button>
+        </div>
+        {myBills.length ? <ul className="divide-y divide-white/10">
+          {myBills.map((bill) => <li key={bill.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{bill.invoiceDetails?.invoiceNumber || 'Invoice'} · {bill.buyerDetails?.name || 'Cash Customer'}</p>
+              <p className="text-xs text-slate-400 mt-1">{formatMoney(bill.totals?.grandTotal || 0)} · {bill.status === 'draft' ? 'Draft' : 'Saved'}</p>
+            </div>
+            <Button variant="secondary" onClick={() => { onOpenBill?.(bill); setShowMyBills(false); }}>
+              <PencilLine size={15} /> Edit bill
+            </Button>
+          </li>)}
+        </ul> : <p className="text-sm text-slate-400 py-3">No bills created by your account yet.</p>}
+      </Card>}
 
       {savedId && billEvents.length > 0 && <details className="mb-4 rounded-xl border border-white/10 bg-ink-900/60 px-4 py-3">
         <summary className="cursor-pointer text-sm font-semibold text-slate-200">Invoice change history <span className="text-slate-500">({billEvents.length})</span></summary>

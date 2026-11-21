@@ -86,7 +86,7 @@ export default function TenantApp({ user, userData, path, setPath, navigate, sho
 
   const page = (() => {
     switch (path) {
-      case 'billing': return <BillingPOS user={user} userData={userData} editBill={editBill} onClearEdit={() => setEditBill(null)} showToast={showToast} bills={data.bills} inventory={data.inventory} customers={data.customers} navigate={go} />;
+      case 'billing': return <BillingPOS user={user} userData={userData} editBill={editBill} onOpenBill={setEditBill} onClearEdit={() => setEditBill(null)} showToast={showToast} bills={data.bills} inventory={data.inventory} customers={data.customers} navigate={go} />;
       case 'inventory': return <Inventory user={user} showToast={showToast} canEdit={canEditInventory(role)} />;
       case 'customers': return <Customers user={user} showToast={showToast} canEdit={role !== 'accountant'} canManageBills={canManageBills(role)} />;
       case 'suppliers': return <Suppliers user={user} onNavigate={go} showToast={showToast} canEdit={canManageStore(role)} />;
